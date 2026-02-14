@@ -14,7 +14,7 @@ from typing import Dict, List, Tuple
 # APPLICATION INFO
 # ═══════════════════════════════════════════════════════════════════════════════
 APP_NAME = "AI Sprite Creator"
-APP_VERSION = "1.0.4"
+APP_VERSION = "1.0.5"
 
 
 def get_resource_path(relative_path: str = "") -> Path:
