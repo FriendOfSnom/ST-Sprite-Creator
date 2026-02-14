@@ -10,10 +10,24 @@ Provides a graphical launcher for:
 3. Sprite Tester - Preview sprites in Ren'Py environment
 """
 
+import io
 import sys
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox
+
+# Force UTF-8 stdout/stderr on Windows so print() doesn't crash on non-ASCII
+# characters (e.g. \u202f narrow no-break space from macOS filenames or
+# unicode in Gemini API responses).
+if sys.platform == "win32":
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    elif sys.stdout is None or not hasattr(sys.stdout, "write"):
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer if sys.stdout else open("NUL", "w"), encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    elif sys.stderr is None or not hasattr(sys.stderr, "write"):
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer if sys.stderr else open("NUL", "w"), encoding="utf-8", errors="replace")
 
 from .logging_utils import setup_logging, log_info, log_error, log_exception
 
