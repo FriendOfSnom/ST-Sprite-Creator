@@ -773,11 +773,11 @@ def click_to_remove_background(image_path: Path, threshold: int = 30) -> bool:
 
     sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
 
-    # Calculate display size — maximize image area
-    # Overhead: slider ~50 + buttons ~40 + padding ~30 = ~120px
+    # Calculate display size — large but leave room for slider + buttons + chrome
+    # Overhead: title bar ~32, slider ~70, buttons ~45, padding ~35, taskbar ~48 ≈ 230px
     original_w, original_h = working_img.size
     max_display_w = int(sw * 0.90)
-    max_display_h = sh - 120
+    max_display_h = int(sh * 0.75)
 
     scale = min(max_display_w / original_w, max_display_h / original_h, 1.0)
     display_w = max(1, int(original_w * scale))
@@ -789,16 +789,19 @@ def click_to_remove_background(image_path: Path, threshold: int = 30) -> bool:
     needs_h_scroll = display_w > canvas_vis_w
     needs_v_scroll = display_h > canvas_vis_h
 
+    # Center all grid content
+    root.grid_columnconfigure(0, weight=1)
+
     # Canvas with conditional scrollbars
     canvas_frame = tk.Frame(root, bg=BG_COLOR)
-    canvas_frame.grid(row=0, column=0, padx=10, pady=(6, 4), sticky="nsew")
+    canvas_frame.grid(row=0, column=0, padx=10, pady=(6, 4))
 
     if needs_v_scroll:
-        v_scroll = ttk.Scrollbar(canvas_frame, orient="vertical")
+        v_scroll = tk.Scrollbar(canvas_frame, orient="vertical")
         v_scroll.pack(side="right", fill="y")
 
     if needs_h_scroll:
-        h_scroll = ttk.Scrollbar(canvas_frame, orient="horizontal")
+        h_scroll = tk.Scrollbar(canvas_frame, orient="horizontal")
         h_scroll.pack(side="bottom", fill="x")
 
     canvas = tk.Canvas(
