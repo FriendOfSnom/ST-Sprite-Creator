@@ -16,6 +16,7 @@ from ...config import (
     TEXT_COLOR,
     TEXT_SECONDARY,
     ACCENT_COLOR,
+    ERROR_TEXT,
     PAGE_TITLE_FONT,
     BODY_FONT,
     SMALL_FONT,
@@ -133,7 +134,7 @@ Click Accept when ready to begin generation."""
         if image_path is None:
             self._preview_label.configure(
                 text="No image available.\nPlease go back to Step 2.",
-                fg="#ff5555",
+                fg=ERROR_TEXT,
             )
             return
 
@@ -157,7 +158,7 @@ Click Accept when ready to begin generation."""
         except Exception as e:
             self._preview_label.configure(
                 text=f"Error loading image:\n{e}",
-                fg="#ff5555",
+                fg=ERROR_TEXT,
             )
 
     def _display_summary(self) -> None:

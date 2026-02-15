@@ -15,6 +15,9 @@ student-transfer/
 # Legacy/archived code
 Old_Files/
 
+# Standalone tools (not part of main package)
+tools/
+
 # Python cache
 __pycache__/
 *.pyc

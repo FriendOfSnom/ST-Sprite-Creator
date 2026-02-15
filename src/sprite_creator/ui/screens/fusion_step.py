@@ -22,6 +22,7 @@ from ...config import (
     TEXT_COLOR,
     TEXT_SECONDARY,
     ACCENT_COLOR,
+    ERROR_TEXT,
     PAGE_TITLE_FONT,
     SECTION_FONT,
     BODY_FONT,
@@ -561,7 +562,7 @@ TROUBLESHOOTING
         self._is_generating = False
         self.hide_loading()
         self._fusion_btn.configure(state="normal")
-        self._status_label.configure(text=f"Fusion failed: {error[:50]}...", fg="#FF6B6B")
+        self._status_label.configure(text=f"Fusion failed: {error[:50]}...", fg=ERROR_TEXT)
         log_error("Fusion", f"Failed: {error}")
         messagebox.showerror("Fusion Failed", f"Failed to generate fused character:\n{error}")
 

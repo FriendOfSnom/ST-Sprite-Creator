@@ -27,6 +27,11 @@ from ..config import (
     DANGER_HOVER,
     BORDER_COLOR,
     LINE_COLOR,
+    ERROR_TEXT,
+    WARNING_TEXT,
+    CAUTION_TEXT,
+    ERROR_BG,
+    OVERLAY_BG,
     # Fonts
     FONT_FAMILY,
     TITLE_FONT,
@@ -861,8 +866,8 @@ class ToggleChip(tk.Frame):
             self._label.unbind("<Enter>")
             self._label.unbind("<Leave>")
             # Grey out appearance
-            self.configure(bg="#1a1a1a", highlightbackground="#333333", highlightthickness=1)
-            self._label.configure(bg="#1a1a1a", fg="#555555", font=SMALL_FONT)
+            self.configure(bg=BG_SECONDARY, highlightbackground="#333333", highlightthickness=1)
+            self._label.configure(bg=BG_SECONDARY, fg=TEXT_DISABLED, font=SMALL_FONT)
 
     @property
     def text(self) -> str:
@@ -1197,4 +1202,10 @@ __all__ = [
     "INSTRUCTION_FONT",
     "LINE_COLOR",
     "WINDOW_MARGIN",
+    # Status colors
+    "ERROR_TEXT",
+    "WARNING_TEXT",
+    "CAUTION_TEXT",
+    "ERROR_BG",
+    "OVERLAY_BG",
 ]

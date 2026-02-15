@@ -29,7 +29,11 @@ from ...config import (
     TEXT_COLOR,
     TEXT_SECONDARY,
     ACCENT_COLOR,
+    ACCENT_HOVER,
     BORDER_COLOR,
+    ERROR_TEXT,
+    WARNING_TEXT,
+    OVERLAY_BG,
     PAGE_TITLE_FONT,
     SECTION_FONT,
     BODY_FONT,
@@ -405,7 +409,7 @@ After selecting, click Next to continue."""
             self._tk_preview_img = ImageTk.PhotoImage(img)
             self._preview_image_display.configure(image=self._tk_preview_img)
         except Exception as e:
-            self._image_preview_label.configure(text=f"Error loading preview: {e}", fg="#ff5555")
+            self._image_preview_label.configure(text=f"Error loading preview: {e}", fg=ERROR_TEXT)
 
     # -------------------------------------------------------------------------
     # Fusion methods
@@ -552,13 +556,13 @@ After selecting, click Next to continue."""
         self._hide_fusion_loading()
 
         # Create semi-transparent overlay
-        self._fusion_loading_overlay = tk.Frame(self._fusion_result_slot, bg="#1a1a2e")
+        self._fusion_loading_overlay = tk.Frame(self._fusion_result_slot, bg=OVERLAY_BG)
         self._fusion_loading_overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
 
         tk.Label(
             self._fusion_loading_overlay,
             text="Fusing\ncharacters...",
-            bg="#1a1a2e",
+            bg=OVERLAY_BG,
             fg=TEXT_COLOR,
             font=BODY_FONT,
         ).place(relx=0.5, rely=0.5, anchor="center")
@@ -632,7 +636,7 @@ After selecting, click Next to continue."""
         self._is_fusing = False
         self._hide_fusion_loading()
         self._fusion_btn.configure(state="normal")
-        self._fusion_status_label.configure(text=f"Fusion failed: {error[:50]}...", fg="#FF6B6B")
+        self._fusion_status_label.configure(text=f"Fusion failed: {error[:50]}...", fg=ERROR_TEXT)
         log_error("Fusion", f"Failed: {error}")
         messagebox.showerror("Fusion Failed", f"Failed to generate fused character:\n{error}")
 
@@ -786,10 +790,13 @@ When adding to an existing character:
 - You can click "Regenerate" to re-normalize if needed
 - The Next button is disabled until you accept a normalized result
 
-ST Style Toggle
-The "Use ST style references" checkbox controls the art style:
-- Checked (default): Uses Student Transfer reference art
+ST STYLE TOGGLE (Prompt Mode Only)
+The "Use ST style references" checkbox controls the art style when generating from a text description:
+- Checked (default): Uses Student Transfer reference art for consistent style
 - Unchecked: No style references - describe any art style you want
+
+GOING BACK
+If you go back to a previous step and change settings (like outfit descriptions or the base image), the tool will automatically detect changes and regenerate affected content when you return.
 
 Click Next when your character looks right."""
 
@@ -946,7 +953,7 @@ Click Next when your character looks right."""
             text="Note: Gemini may refuse to generate characters with certain descriptions. "
                  "If generation fails, try adjusting your description.",
             bg=BG_COLOR,
-            fg="#FFB347",  # Warning orange
+            fg=WARNING_TEXT,  # Warning orange
             font=SMALL_FONT,
             wraplength=350,
             justify="left",
@@ -1020,7 +1027,7 @@ Click Next when your character looks right."""
             text="⚠️ IMPORTANT: Click to set crop at MID-THIGH level, then click Accept Crop.\n"
                  "Do NOT include feet - they cause issues with background removal!",
             bg=BG_COLOR,
-            fg="#FFB347",  # Warning orange
+            fg=WARNING_TEXT,  # Warning orange
             font=SMALL_FONT,
             justify="center",
         ).pack(pady=(0, 6))
@@ -1393,7 +1400,7 @@ Click Next when your character looks right."""
 
     def _on_generation_error(self, error: str) -> None:
         """Handle generation error."""
-        self._generation_status.configure(text=f"Error: {error}", fg="#ff5555")
+        self._generation_status.configure(text=f"Error: {error}", fg=ERROR_TEXT)
         self._generate_btn.configure(state="normal")
 
     def _load_crop_image(self) -> None:
@@ -1405,7 +1412,7 @@ Click Next when your character looks right."""
             self._crop_original_img = Image.open(self.state.image_path).convert("RGBA")
             self._original_image_backup = self._crop_original_img.copy()
         except Exception as e:
-            self._crop_status_label.configure(text=f"Error loading: {e}", fg="#ff5555")
+            self._crop_status_label.configure(text=f"Error loading: {e}", fg=ERROR_TEXT)
             return
 
         self._display_crop_image()
@@ -1712,7 +1719,7 @@ Click Next when your character looks right."""
 
     def _on_modification_error(self, error: str) -> None:
         """Handle modification error."""
-        self._image_status.configure(text=f"Error: {error[:50]}...", fg="#ff5555")
+        self._image_status.configure(text=f"Error: {error[:50]}...", fg=ERROR_TEXT)
         self._modify_btn.configure(state="normal")
 
     def _on_reset_to_normalized(self) -> None:
@@ -1964,7 +1971,7 @@ Click Next when your character looks right."""
 
         except Exception as e:
             # Show error placeholder
-            tk.Label(card, text=f"Error\n{label}", bg=CARD_BG, fg="#ff5555", font=SMALL_FONT).pack()
+            tk.Label(card, text=f"Error\n{label}", bg=CARD_BG, fg=ERROR_TEXT, font=SMALL_FONT).pack()
 
     def _get_sprite_path_for_pose(self, pose_dir: Path) -> Optional[Path]:
         """Get a representative sprite path for a pose directory."""
@@ -2307,13 +2314,13 @@ Click Next when your character looks right."""
 
         self._hide_normalize_loading()
 
-        self._normalize_loading_overlay = tk.Frame(self._normalized_preview_frame, bg="#1a1a2e")
+        self._normalize_loading_overlay = tk.Frame(self._normalized_preview_frame, bg=OVERLAY_BG)
         self._normalize_loading_overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
 
         tk.Label(
             self._normalize_loading_overlay,
             text="Normalizing\nimage...",
-            bg="#1a1a2e",
+            bg=OVERLAY_BG,
             fg=TEXT_COLOR,
             font=BODY_FONT,
         ).place(relx=0.5, rely=0.5, anchor="center")
@@ -2578,35 +2585,35 @@ Click Next when you've made your selections."""
         # --- Content Warning Banner (hidden by default) ---
         self._content_warning_var = tk.BooleanVar(value=False)
         self._content_warning_frame = tk.Frame(
-            parent, bg="#3a2a1a", padx=12, pady=10,
-            highlightbackground="#FFB347", highlightthickness=2,
+            parent, bg=CARD_BG, padx=12, pady=10,
+            highlightbackground=WARNING_TEXT, highlightthickness=2,
         )
         # Don't pack yet — shown/hidden by _update_content_warning()
 
-        warning_header = tk.Frame(self._content_warning_frame, bg="#3a2a1a")
+        warning_header = tk.Frame(self._content_warning_frame, bg=CARD_BG)
         warning_header.pack(fill="x")
         tk.Label(
             warning_header,
             text="Content Filter Warning",
-            bg="#3a2a1a", fg="#FFB347", font=SECTION_FONT,
+            bg=CARD_BG, fg=WARNING_TEXT, font=SECTION_FONT,
         ).pack(side="left")
 
         self._content_warning_label = tk.Label(
             self._content_warning_frame,
             text="",
-            bg="#3a2a1a", fg=TEXT_COLOR, font=SMALL_FONT,
+            bg=CARD_BG, fg=TEXT_COLOR, font=SMALL_FONT,
             justify="left", anchor="w", wraplength=500,
         )
         self._content_warning_label.pack(fill="x", pady=(6, 6))
 
-        ack_frame = tk.Frame(self._content_warning_frame, bg="#3a2a1a")
+        ack_frame = tk.Frame(self._content_warning_frame, bg=CARD_BG)
         ack_frame.pack(fill="x")
         tk.Checkbutton(
             ack_frame,
             text="I understand these may not generate successfully",
             variable=self._content_warning_var,
-            bg="#3a2a1a", fg=TEXT_COLOR, selectcolor="#1E1E1E",
-            activebackground="#3a2a1a", activeforeground=TEXT_COLOR,
+            bg=CARD_BG, fg=TEXT_COLOR, selectcolor="#1E1E1E",
+            activebackground=CARD_BG, activeforeground=TEXT_COLOR,
             font=SMALL_FONT,
         ).pack(side="left")
 
@@ -2930,7 +2937,7 @@ Click Next when you've made your selections."""
         self._use_base_as_outfit_var.set(new_val)
         if new_val:
             self._base_toggle_btn.configure(text="ON", bg=ACCENT_COLOR)
-            self._base_toggle_btn.bind("<Enter>", lambda e: self._base_toggle_btn.configure(bg="#5599dd"))
+            self._base_toggle_btn.bind("<Enter>", lambda e: self._base_toggle_btn.configure(bg=ACCENT_HOVER))
             self._base_toggle_btn.bind("<Leave>", lambda e: self._base_toggle_btn.configure(bg=ACCENT_COLOR))
         else:
             self._base_toggle_btn.configure(text="OFF", bg="#555555")

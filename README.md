@@ -85,6 +85,7 @@ Preview character sprites in a simulated Ren'Py environment. Test outfit switchi
 ```
 character_name/
   character.yml             Metadata (voice, scale, eye line, colors)
+  How-To-Use.txt            Instructions for using with Student Transfer
   base.png                  Original base image for reference
   a/                        Pose A (first outfit)
     outfits/

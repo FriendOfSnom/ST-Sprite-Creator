@@ -16,6 +16,7 @@ from ...config import (
     TEXT_COLOR,
     TEXT_SECONDARY,
     ACCENT_COLOR,
+    ERROR_TEXT,
     PAGE_TITLE_FONT,
     BODY_FONT,
     SMALL_FONT,
@@ -141,7 +142,7 @@ You can go back if you need to change your source image."""
         except Exception as e:
             self._instruction_label.configure(
                 text=f"Error loading image: {e}",
-                fg="#ff5555",
+                fg=ERROR_TEXT,
             )
             return
 

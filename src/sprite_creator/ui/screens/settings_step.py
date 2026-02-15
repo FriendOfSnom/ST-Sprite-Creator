@@ -21,6 +21,7 @@ from ...config import (
     TEXT_COLOR,
     TEXT_SECONDARY,
     ACCENT_COLOR,
+    WARNING_TEXT,
     PAGE_TITLE_FONT,
     SECTION_FONT,
     BODY_FONT,
@@ -486,7 +487,7 @@ For characters NOT created by Sprite Creator:
         """Handle normalization error - continue anyway with original image."""
         self._is_normalizing = False
         self.hide_loading()
-        self._status_label.configure(text=f"Normalization skipped: {error[:40]}...", fg="#FFB347")
+        self._status_label.configure(text=f"Normalization skipped: {error[:40]}...", fg=WARNING_TEXT)
         log_error(f"Normalization failed, continuing with original: {error}")
 
         # Set normalized_image to None so SetupStep falls back to original

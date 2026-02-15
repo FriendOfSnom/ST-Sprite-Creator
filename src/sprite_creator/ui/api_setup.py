@@ -23,6 +23,7 @@ from ..config import (
     ACCENT_COLOR,
     SUCCESS_COLOR,
     DANGER_COLOR,
+    WARNING_TEXT,
     TITLE_FONT,
     SECTION_FONT,
     BODY_FONT,
@@ -198,14 +199,14 @@ class APISetupWindow:
         env_key = os.environ.get("GEMINI_API_KEY")
         if env_key:
             # Show warning that env var takes precedence
-            warning_frame = tk.Frame(main_frame, bg="#5E4A2D", padx=12, pady=8)
+            warning_frame = tk.Frame(main_frame, bg=CARD_BG, padx=12, pady=8)
             warning_frame.pack(fill="x", pady=(0, 12))
 
             tk.Label(
                 warning_frame,
                 text="⚠️ Environment Variable Detected",
-                bg="#5E4A2D",
-                fg="#FFB347",
+                bg=CARD_BG,
+                fg=WARNING_TEXT,
                 font=SECTION_FONT,
             ).pack(anchor="w")
 
@@ -214,7 +215,7 @@ class APISetupWindow:
                 text="The GEMINI_API_KEY environment variable is set.\n"
                      "This takes precedence over any key saved here.\n"
                      "To use a different key, unset the environment variable first.",
-                bg="#5E4A2D",
+                bg=CARD_BG,
                 fg=TEXT_COLOR,
                 font=SMALL_FONT,
                 justify="left",

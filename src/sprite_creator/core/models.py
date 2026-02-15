@@ -80,6 +80,9 @@ class WizardState:
     outfit_prompts: Dict[str, str] = field(default_factory=dict)  # key -> current prompt text
     custom_outfit_prompts: Set[str] = field(default_factory=set)  # outfit keys with user-provided custom prompts
     generated_outfit_keys: List[str] = field(default_factory=list)  # Keys of outfits that succeeded
+    last_outfit_prompt_config: Dict[str, Dict] = field(default_factory=dict)  # snapshot for change detection
+    last_base_pose_path: Optional[Path] = None  # snapshot of base_pose_path at generation time
+    last_base_pose_mtime: Optional[float] = None  # file mtime of base_pose_path at generation time
 
     # Step 10: Expression generation (per outfit)
     expression_paths: Dict[str, Dict[str, Path]] = field(default_factory=dict)  # outfit -> {expr: path}

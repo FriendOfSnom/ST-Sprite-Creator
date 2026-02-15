@@ -14,7 +14,7 @@ from typing import Dict, List, Tuple
 # APPLICATION INFO
 # ═══════════════════════════════════════════════════════════════════════════════
 APP_NAME = "AI Sprite Creator"
-APP_VERSION = "1.0.5"
+APP_VERSION = "1.0.6"
 
 
 def get_resource_path(relative_path: str = "") -> Path:
@@ -85,7 +85,7 @@ CARD_BG_SELECTED = "#4A90D9"      # Selected card background
 
 TEXT_COLOR = "#FFFFFF"            # Primary text
 TEXT_SECONDARY = "#A0A0A0"        # Secondary/muted text
-TEXT_DISABLED = "#666666"         # Disabled text
+TEXT_DISABLED = "#888888"         # Disabled text (readable on dark backgrounds)
 
 ACCENT_COLOR = "#4A90D9"          # Blue accent for primary buttons
 ACCENT_HOVER = "#5BA0E9"          # Primary button hover
@@ -95,6 +95,15 @@ SECONDARY_HOVER = "#777777"       # Secondary button hover
 DANGER_COLOR = "#D94A4A"          # Red for destructive actions
 DANGER_HOVER = "#E95A5A"          # Danger button hover
 SUCCESS_COLOR = "#4AD94A"         # Green for success states
+
+# Status text colors (high contrast on dark backgrounds)
+ERROR_TEXT = "#FF6B6B"            # Red for inline error messages
+WARNING_TEXT = "#FFB347"          # Orange for warnings and tips
+CAUTION_TEXT = "#FFD700"          # Yellow for important cautions
+
+# Status background tints
+ERROR_BG = "#4A2020"              # Dark red tint for error states
+OVERLAY_BG = "#1E1E2E"           # Dark overlay for loading states
 
 LINE_COLOR = "#00E5FF"            # Cyan accent for highlights
 HIGHLIGHT_COLOR = "#00E5FF"       # Interactive element highlights

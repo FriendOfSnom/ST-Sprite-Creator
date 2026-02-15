@@ -23,6 +23,8 @@ from ...config import (
     TEXT_COLOR,
     TEXT_SECONDARY,
     ACCENT_COLOR,
+    ERROR_TEXT,
+    SUCCESS_COLOR,
     PAGE_TITLE_FONT,
     SECTION_FONT,
     BODY_FONT,
@@ -205,7 +207,7 @@ If you need to redo:
         if not image_path:
             self._instruction_label.configure(
                 text="No character image available.",
-                fg="#ff5555",
+                fg=ERROR_TEXT,
             )
             return
 
@@ -214,7 +216,7 @@ If you need to redo:
         except Exception as e:
             self._instruction_label.configure(
                 text=f"Error loading image: {e}",
-                fg="#ff5555",
+                fg=ERROR_TEXT,
             )
             return
 
@@ -389,14 +391,17 @@ This step sets how large your character appears in-game.
 
 HOW IT WORKS
 The left canvas shows a reference character at their defined scale.
-The right canvas shows your character at the current slider value.
+The right canvas shows one of your generated expressions at the current slider value.
 
 Both are rendered as they would appear in the game engine, anchored at the bottom (standing on the same ground).
 
-REFERENCE DROPDOWN
+REFERENCE DROPDOWN (Left)
 Select a reference character to compare against. Choose one that matches your character's age/archetype for best results.
 
 Reference characters have pre-defined scales in their .yml files.
+
+PREVIEW EXPRESSION DROPDOWN (Right)
+Select which of your generated expressions to preview. You can switch between different outfits and expression numbers to compare against the reference at the current scale.
 
 SCALE SLIDER
 Drag to adjust your character's scale:
@@ -420,19 +425,16 @@ COMMON VALUES
 The exact value depends on your game's art style and existing characters.
 
 AUTOMATIC IMAGE SCALING
-When you set a scale below 1.0, all generated images are automatically
-resized using high-quality LANCZOS resampling. This reduces file sizes
-and ensures consistent display in-game.
+All generated images are automatically resized using high-quality LANCZOS resampling based on the scale value you choose. This reduces file sizes and ensures consistent display in-game.
 
 ADD-TO-EXISTING MODE
 When adding to an existing character:
-- Left canvas shows a scaled expression from the existing character
-- Right canvas shows your newly generated content
-- Scale is auto-calculated to match the existing character
+- Left canvas shows a composite from the existing character
+- Right canvas shows your newly generated expression (selectable via dropdown)
+- Scale is auto-calculated to match the existing character's image height
 - Images are always scaled to ensure consistency
 
-The auto-calculated scale makes the new character appear the same
-size as the existing one in-game. You can fine-tune if needed.
+The auto-calculated scale makes the new content appear the same size as the existing character in-game. You can fine-tune if needed.
 
 Click Next when the scale looks right."""
 
@@ -637,9 +639,9 @@ Click Next when the scale looks right."""
             self._setup_add_to_existing_mode()
             return
 
-        # Normal mode: hide add-to-existing selector, show reference selector
-        self._new_expr_selector_frame.pack_forget()
+        # Normal mode: show both reference selector and expression selector
         self._ref_selector_frame.pack(pady=(0, 8))
+        self._new_expr_selector_frame.pack(pady=(0, 8))
         # Scaling is always mandatory - ensure var is True
         self._apply_scale_var.set(True)
         self._left_label.configure(text="Reference")
@@ -652,7 +654,7 @@ Click Next when the scale looks right."""
                 "No reference sprites found. You can still set a scale manually."
             )
 
-        # Update dropdown
+        # Update reference dropdown
         menu = self._ref_menu["menu"]
         menu.delete(0, "end")
         names = sorted(self._references.keys())
@@ -663,13 +665,58 @@ Click Next when the scale looks right."""
             for name in names:
                 menu.add_command(label=name, command=lambda n=name: self._on_ref_change(n))
 
-        # Load user image
-        image_path = self.state.base_pose_path
-        if image_path and image_path.exists():
-            try:
-                self._user_img = Image.open(image_path).convert("RGBA")
-            except Exception:
-                self._user_img = None
+        # Load generated expression images for right side
+        # (NOT base_pose_path — that's the cropped input which can differ in
+        # resolution from the Gemini-generated images that ST will actually render)
+        self._new_expr_images.clear()
+        self._user_img = None
+
+        if self.state.expression_paths:
+            for outfit_name, expr_dict in self.state.expression_paths.items():
+                for expr_key in sorted(expr_dict.keys(), key=lambda x: int(x) if x.isdigit() else 999):
+                    path = expr_dict[expr_key]
+                    if path and path.exists():
+                        try:
+                            img = Image.open(path).convert("RGBA")
+                            label = f"{outfit_name} - {expr_key}"
+                            self._new_expr_images[label] = img
+                        except Exception:
+                            pass
+
+        # Populate expression dropdown and set default
+        expr_menu = self._new_expr_menu["menu"]
+        expr_menu.delete(0, "end")
+        if self._new_expr_images:
+            labels = list(self._new_expr_images.keys())
+            default_label = labels[0]
+            self._new_expr_var.set(default_label)
+            self._user_img = self._new_expr_images[default_label]
+            for label in labels:
+                expr_menu.add_command(
+                    label=label,
+                    command=lambda l=label: self._on_new_expr_change(l)
+                )
+
+        # Fallback: scan working folder for any generated face
+        if not self._user_img:
+            working_folder = self.state.character_folder
+            if working_folder and working_folder.exists():
+                for pose_letter in "abcdefghijklmnopqrstuvwxyz":
+                    face_dir = working_folder / pose_letter / "faces" / "face"
+                    if face_dir.is_dir():
+                        for expr_num in ["0", "1"]:
+                            for ext in [".png", ".webp"]:
+                                path = face_dir / f"{expr_num}{ext}"
+                                if path.exists():
+                                    try:
+                                        self._user_img = Image.open(path).convert("RGBA")
+                                        break
+                                    except Exception:
+                                        pass
+                            if self._user_img:
+                                break
+                        if self._user_img:
+                            break
 
         # Restore previous scale
         if self.state.scale_factor:
@@ -894,7 +941,7 @@ Click Next when the scale looks right."""
         self._redraw()
 
     def _on_new_expr_change(self, label: str) -> None:
-        """Handle new expression selector change in add-to-existing mode."""
+        """Handle expression selector change (used in both normal and add-to-existing mode)."""
         self._new_expr_var.set(label)
         if label in self._new_expr_images:
             self._user_img = self._new_expr_images[label]
@@ -1060,6 +1107,9 @@ Each outfit becomes a "pose" folder containing:
 Expression Sheets
 Automatically generated sprite sheets combining all expressions for each pose. These are optimized for game engines.
 
+How-To-Use.txt
+A guide with instructions for using your character in Student Transfer, including Ren'Py code snippets and file placement steps.
+
 WHAT TO DO NEXT
 
 Open Sprite Tester
@@ -1100,7 +1150,7 @@ Click Finish to close the wizard."""
             title_row,
             text="✓ ",
             bg=BG_COLOR,
-            fg="#44bb44",
+            fg=SUCCESS_COLOR,
             font=PAGE_TITLE_FONT,
         ).pack(side="left", padx=(40, 0))
 
@@ -1117,7 +1167,7 @@ Click Finish to close the wizard."""
         content_frame.pack(fill="both", expand=True, padx=20, pady=(8, 0))
 
         # Left column - Summary info
-        left_col = tk.Frame(content_frame, bg=BG_COLOR, width=240)
+        left_col = tk.Frame(content_frame, bg=BG_COLOR, width=320)
         left_col.pack(side="left", fill="y", padx=(0, 8))
         left_col.pack_propagate(False)
 
@@ -1137,7 +1187,15 @@ Click Finish to close the wizard."""
             bg=CARD_BG,
             fg=TEXT_COLOR,
             font=SECTION_FONT,
-        ).pack(anchor="w", pady=(0, 8))
+        ).pack(anchor="w", pady=(0, 2))
+
+        tk.Label(
+            guide_card,
+            text="Also saved as How-To-Use.txt in your character folder.",
+            bg=CARD_BG,
+            fg=TEXT_SECONDARY,
+            font=("", 8),
+        ).pack(anchor="w", pady=(0, 6))
 
         guide_inner = tk.Frame(guide_card, bg=CARD_BG)
         guide_inner.pack(fill="both", expand=True)
@@ -1333,14 +1391,6 @@ Click Finish to close the wizard."""
             self._open_output_folder,
             width=20,
         ).pack(pady=(0, 12))
-
-        # Finish button - opens folder and closes app
-        create_primary_button(
-            self._actions_frame,
-            "Finish",
-            self._on_finish,
-            width=20,
-        ).pack(pady=(0, 8))
 
         # === MIDDLE COLUMN: ST Usage Guide ===
         if self._guide_text:
@@ -1555,6 +1605,20 @@ Click Finish to close the wizard."""
         lines.append("")
 
         return "\n".join(lines)
+
+    def _write_usage_guide_file(self) -> None:
+        """Write the ST usage guide to a How-To-Use.txt file in the character folder."""
+        char_folder = self.state.character_folder
+        if not char_folder or not char_folder.exists():
+            return
+
+        try:
+            guide_content = self._build_usage_guide()
+            guide_path = char_folder / "How-To-Use.txt"
+            guide_path.write_text(guide_content, encoding="utf-8")
+            print(f"[INFO] Saved How-To-Use.txt to {guide_path}")
+        except Exception as e:
+            print(f"[WARN] Failed to write How-To-Use.txt: {e}")
 
     def _copy_guide_to_clipboard(self) -> None:
         """Copy the ST usage guide text to the clipboard."""
@@ -1810,6 +1874,10 @@ Click Finish to close the wizard."""
             generate_expression_sheets_for_root(char_dir)
             print(f"[INFO] Generated expression sheets for {self.state.display_name}")
 
+            # Write How-To-Use.txt with ST usage instructions
+            self._update_progress("Writing usage guide...")
+            self._write_usage_guide_file()
+
             # Mark as finalized so we don't re-run if user goes back and forward
             self._finalized = True
             log_info(f"FINALIZE: Complete at {char_dir}")
@@ -1950,6 +2018,10 @@ Click Finish to close the wizard."""
 
             # Update state to point to existing folder for summary display
             self.state.character_folder = existing_folder
+
+            # Write How-To-Use.txt with ST usage instructions
+            self._update_progress("Writing usage guide...")
+            self._write_usage_guide_file()
 
             # Clean up temp working folder (it's no longer needed after merge)
             if working_folder != existing_folder and working_folder.exists():

@@ -772,48 +772,60 @@ def click_to_remove_background(image_path: Path, threshold: int = 30) -> bool:
     root.title("Click to Remove Background")
 
     sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
-    wrap_len = wraplength_for(int(sw * 0.9))
 
-    # Instructions
-    tk.Label(
-        root,
-        text=(
-            "Click on black background areas to remove them.\n"
-            "Adjust the threshold slider to control removal sensitivity.\n"
-            "Use 'Undo Last Click' to reverse mistakes, or 'Restart' to start over."
-        ),
-        font=TITLE_FONT,
-        bg=BG_COLOR,
-        wraplength=wrap_len,
-        justify="center",
-    ).grid(row=0, column=0, padx=10, pady=(10, 6), sticky="we")
-
-    # Calculate display size (fit screen with room for UI elements)
+    # Calculate display size — maximize image area
+    # Overhead: slider ~50 + buttons ~40 + padding ~30 = ~120px
     original_w, original_h = working_img.size
     max_display_w = int(sw * 0.90)
-    max_display_h = int(sh * 0.70)
+    max_display_h = sh - 120
 
     scale = min(max_display_w / original_w, max_display_h / original_h, 1.0)
     display_w = max(1, int(original_w * scale))
     display_h = max(1, int(original_h * scale))
 
-    # Canvas for image display
+    # Visible canvas area (may be smaller than image if screen is tiny)
+    canvas_vis_w = min(display_w, max_display_w)
+    canvas_vis_h = min(display_h, max_display_h)
+    needs_h_scroll = display_w > canvas_vis_w
+    needs_v_scroll = display_h > canvas_vis_h
+
+    # Canvas with conditional scrollbars
     canvas_frame = tk.Frame(root, bg=BG_COLOR)
-    canvas_frame.grid(row=1, column=0, padx=10, pady=6)
+    canvas_frame.grid(row=0, column=0, padx=10, pady=(6, 4), sticky="nsew")
+
+    if needs_v_scroll:
+        v_scroll = ttk.Scrollbar(canvas_frame, orient="vertical")
+        v_scroll.pack(side="right", fill="y")
+
+    if needs_h_scroll:
+        h_scroll = ttk.Scrollbar(canvas_frame, orient="horizontal")
+        h_scroll.pack(side="bottom", fill="x")
 
     canvas = tk.Canvas(
         canvas_frame,
-        width=display_w,
-        height=display_h,
+        width=canvas_vis_w,
+        height=canvas_vis_h,
         bg="white",  # White background so transparent areas are visible
         highlightthickness=0,
         cursor="none",  # Hide default cursor
+        scrollregion=(0, 0, display_w, display_h),
     )
-    canvas.pack()
+    canvas.pack(fill="both", expand=True)
+
+    if needs_v_scroll:
+        canvas.configure(yscrollcommand=v_scroll.set)
+        v_scroll.configure(command=canvas.yview)
+    if needs_h_scroll:
+        canvas.configure(xscrollcommand=h_scroll.set)
+        h_scroll.configure(command=canvas.xview)
+
+    # Mousewheel scrolling when scrollbars are active
+    if needs_v_scroll:
+        canvas.bind("<MouseWheel>", lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)), "units"))
 
     # Threshold slider
     slider_frame = tk.Frame(root, bg=BG_COLOR)
-    slider_frame.grid(row=2, column=0, padx=10, pady=(6, 4), sticky="we")
+    slider_frame.grid(row=1, column=0, padx=10, pady=(4, 2), sticky="we")
 
     threshold_label = tk.Label(
         slider_frame,
@@ -933,6 +945,10 @@ def click_to_remove_background(image_path: Path, threshold: int = 30) -> bool:
 
     def update_crosshair(event):
         """Update crosshair cursor position."""
+        # Convert to canvas coordinates (accounts for scroll offset)
+        cx = canvas.canvasx(event.x)
+        cy = canvas.canvasy(event.y)
+
         # Remove old crosshair
         if img_refs["crosshair_h"]:
             canvas.delete(img_refs["crosshair_h"])
@@ -940,20 +956,21 @@ def click_to_remove_background(image_path: Path, threshold: int = 30) -> bool:
             canvas.delete(img_refs["crosshair_v"])
 
         # Draw new crosshair centered on mouse
-        # Horizontal line
         img_refs["crosshair_h"] = canvas.create_line(
-            0, event.y, display_w, event.y,
+            0, cy, display_w, cy,
             fill="red", width=1, tags="crosshair"
         )
-        # Vertical line
         img_refs["crosshair_v"] = canvas.create_line(
-            event.x, 0, event.x, display_h,
+            cx, 0, cx, display_h,
             fill="red", width=1, tags="crosshair"
         )
 
     def on_click(event):
         """Handle canvas click."""
-        flood_fill_remove(event.x, event.y)
+        # Convert to canvas coordinates (accounts for scroll offset)
+        cx = canvas.canvasx(event.x)
+        cy = canvas.canvasy(event.y)
+        flood_fill_remove(cx, cy)
 
     # Track whether user accepted changes
     accepted = {"value": False}
@@ -989,7 +1006,7 @@ def click_to_remove_background(image_path: Path, threshold: int = 30) -> bool:
 
     # Buttons
     btns = tk.Frame(root, bg=BG_COLOR)
-    btns.grid(row=3, column=0, pady=(6, 10))
+    btns.grid(row=2, column=0, pady=(4, 8))
 
     btn_refs["undo"] = tk.Button(btns, text="Undo Last Click", width=16, command=on_undo, state=tk.DISABLED)
     btn_refs["undo"].pack(side=tk.LEFT, padx=10)

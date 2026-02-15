@@ -6,6 +6,8 @@ These steps handle outfit generation and review:
 - Step 9: Manual BG Removal Modal (embedded in step 8)
 """
 
+import copy
+import os
 import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -22,6 +24,10 @@ from ...config import (
     TEXT_COLOR,
     TEXT_SECONDARY,
     ACCENT_COLOR,
+    ERROR_TEXT,
+    WARNING_TEXT,
+    CAUTION_TEXT,
+    OVERLAY_BG,
     PAGE_TITLE_FONT,
     SECTION_FONT,
     BODY_FONT,
@@ -146,7 +152,7 @@ class CustomRegenModal:
             main_frame,
             textvariable=self._status_var,
             bg=BG_COLOR,
-            fg="#ff5555",
+            fg=ERROR_TEXT,
             font=SMALL_FONT,
         )
         self._status_label.pack(anchor="w", pady=(0, 8))
@@ -232,7 +238,7 @@ Focus on:
 If there are still some leftover background spots INSIDE the character (like between hair strands or under arms), don't stress - you can clean those up with the flood-fill tool on the next step.
 
 WHAT HAPPENS NEXT
-When you click Next, the tool generates expressions (facial variations) for EACH outfit shown here. The Tolerance/Depth settings you set here will be used as defaults for expression background removal.
+When you click Next, you'll proceed to the Expression Review step, where expressions (facial variations) are generated for EACH outfit shown here. The Tolerance/Depth settings you set here will be used as defaults for expression background removal.
 
 ═══════════════════════════════════════════════════
 TROUBLESHOOTING - WHEN TO REGENERATE
@@ -267,13 +273,13 @@ Each card shows one generated outfit with controls below.
 REGENERATION BUTTONS
 Regen Same Outfit: Generate a new image using the same outfit description. Useful if the pose or quality isn't right but you like the outfit concept.
 
-Regen New Outfit: Generate with a completely different random outfit description. Use this to try a different look entirely.
+Regen New Outfit: Generate with a completely different random outfit description. Use this to try a different look entirely. Only available for random outfits (not custom or ST Uniform).
 
 Custom...: Opens a popup where you can type your own outfit description. Use this when you have a specific outfit in mind (e.g., "a blue denim jacket with a white t-shirt underneath"). Be descriptive about colors, style, and details for best results.
 
 If your custom description triggers content filters, you'll see an error message and the current outfit will be kept - nothing is lost.
 
-Note: "Regen Same Outfit" is hidden for underwear because the tier system makes same-prompt regeneration unreliable.
+Note: Custom outfits only show "Regen Same Outfit" and "Custom..." buttons (no "Regen New Outfit" since the outfit was intentionally specified).
 
 BACKGROUND REMOVAL (Auto Mode)
 When an outfit shows the "rembg" sliders:
@@ -359,7 +365,7 @@ When satisfied with all outfits, click Next to proceed to expression generation.
             text="💡 Tolerance/Depth settings here will apply to ALL expressions. "
                  "You can still fix individual expressions on the next step.",
             bg=BG_COLOR,
-            fg="#FFB347",  # Warning orange
+            fg=WARNING_TEXT,
             font=SMALL_FONT,
             wraplength=800,
             justify="left",
@@ -372,7 +378,7 @@ When satisfied with all outfits, click Next to proceed to expression generation.
                  "Use the Tolerance/Depth sliders and click Apply to remove it. "
                  "If black background remains, your character will have a large black box around them in-game.",
             bg=BG_COLOR,
-            fg="#FFD700",  # Bright yellow for visibility
+            fg=CAUTION_TEXT,  # Bright yellow for visibility
             font=SMALL_FONT,
             wraplength=800,
             justify="left",
@@ -428,6 +434,18 @@ When satisfied with all outfits, click Next to proceed to expression generation.
 
     def _on_mousewheel(self, event) -> None:
         """Handle mouse wheel for horizontal scrolling."""
+        # Don't scroll outfits when a modal (Toplevel) has focus — e.g. custom outfit popup
+        try:
+            widget = event.widget
+            if isinstance(widget, str):
+                # Tkinter sometimes passes widget path strings
+                pass
+            else:
+                top = widget.winfo_toplevel()
+                if isinstance(top, tk.Toplevel):
+                    return
+        except Exception:
+            pass
         # Windows: event.delta is typically 120 or -120
         self._canvas.xview_scroll(int(-1 * (event.delta / 120)), "units")
 
@@ -453,6 +471,26 @@ When satisfied with all outfits, click Next to proceed to expression generation.
 
             if current_keys != self.state.generated_outfit_keys:
                 # Selections changed - need full regeneration
+                self.state.outfits_generated = False
+                self._start_outfit_generation()
+                return
+
+            # Check if base image changed since last generation
+            base_changed = False
+            if self.state.base_pose_path != self.state.last_base_pose_path:
+                base_changed = True
+            elif self.state.base_pose_path and self.state.base_pose_path.exists():
+                current_mtime = os.path.getmtime(self.state.base_pose_path)
+                if self.state.last_base_pose_mtime is None or current_mtime != self.state.last_base_pose_mtime:
+                    base_changed = True
+
+            if base_changed:
+                self.state.outfits_generated = False
+                self._start_outfit_generation()
+                return
+
+            # Check if outfit prompt config changed (e.g. random→custom, or custom text edited)
+            if self.state.outfit_prompt_config != self.state.last_outfit_prompt_config:
                 self.state.outfits_generated = False
                 self._start_outfit_generation()
                 return
@@ -600,6 +638,21 @@ When satisfied with all outfits, click Next to proceed to expression generation.
                 f"and try a different outfit type, or use 'Custom...' on another outfit."
             )
 
+        # Save snapshots for change detection on re-entry
+        self.state.last_outfit_prompt_config = copy.deepcopy(self.state.outfit_prompt_config)
+        self.state.last_base_pose_path = self.state.base_pose_path
+        self.state.last_base_pose_mtime = (
+            os.path.getmtime(self.state.base_pose_path)
+            if self.state.base_pose_path and self.state.base_pose_path.exists()
+            else None
+        )
+
+        # Mark all generated outfits as needing expression regeneration
+        # so the expression step knows to regenerate after full outfit regen
+        for key in generated_keys:
+            if key != "base":
+                self.state.outfits_needing_expression_regen.add(key)
+
         # Initialize current bytes from rembg results
         self._current_bytes = [rembg_bytes for _, rembg_bytes in cleanup_data]
         self.state.current_outfit_bytes = self._current_bytes.copy()
@@ -657,11 +710,11 @@ When satisfied with all outfits, click Next to proceed to expression generation.
         #   Content padding: content_frame pady 20×2          =  40
         #   Step header:     title ~45 + tip ~25 + warning ~40 = 110
         #   Card chrome:     h-scrollbar ~20 + card pad ~15   =  35
-        #   Card controls:   caption + regen + sliders + btn  = 160
-        #                                              Total ≈ 440
+        #   Card controls:   caption + regen + sliders + btn  = 140
+        #                                              Total ≈ 420
         self._canvas.winfo_toplevel().update()
         win_h = self._canvas.winfo_toplevel().winfo_height()
-        max_thumb_h = max(int((win_h - 440) * 0.75), 250)
+        max_thumb_h = max(int((win_h - 420) * 0.90), 250)
 
         # Get outfit names (only those that succeeded generation)
         outfit_names = self.state.generated_outfit_keys.copy() if self.state.generated_outfit_keys else []
@@ -711,6 +764,11 @@ When satisfied with all outfits, click Next to proceed to expression generation.
             outfit_config = self.state.outfit_prompt_config.get(name.lower(), {})
             is_standard_uniform = outfit_config.get("use_standard_uniform", False)
             is_underwear = name.lower() == "underwear"
+            # Custom = user-provided prompt from Options wizard or from "Custom..." button
+            is_custom = (
+                (not outfit_config.get("use_random", True) and not is_standard_uniform)
+                or name.lower() in self.state.custom_outfit_prompts
+            )
 
             regen_frame = tk.Frame(card, bg=CARD_BG)
             regen_frame.pack(pady=(1, 1))
@@ -724,8 +782,8 @@ When satisfied with all outfits, click Next to proceed to expression generation.
                     width=14
                 ).pack(side="left", padx=(0, 4))
 
-            # Only show "Regen New Outfit" if not using standard uniform
-            if not is_standard_uniform:
+            # Only show "Regen New Outfit" for random outfits (not standard_uniform or custom)
+            if not is_standard_uniform and not is_custom:
                 create_secondary_button(
                     regen_frame, "Regen New Outfit",
                     lambda i=idx: self._regenerate_outfit(i, same_prompt=False),
@@ -941,14 +999,14 @@ When satisfied with all outfits, click Next to proceed to expression generation.
         card = self._card_frames[idx]
 
         # Create semi-transparent overlay frame
-        overlay = tk.Frame(card, bg="#1a1a2e")
+        overlay = tk.Frame(card, bg=OVERLAY_BG)
         overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
 
         # Loading message
         tk.Label(
             overlay,
             text=message,
-            bg="#1a1a2e",
+            bg=OVERLAY_BG,
             fg=TEXT_COLOR,
             font=BODY_FONT,
             wraplength=200,

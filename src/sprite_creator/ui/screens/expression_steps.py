@@ -20,6 +20,10 @@ from ...config import (
     TEXT_COLOR,
     TEXT_SECONDARY,
     ACCENT_COLOR,
+    ERROR_TEXT,
+    ERROR_BG,
+    OVERLAY_BG,
+    WARNING_TEXT,
     PAGE_TITLE_FONT,
     SECTION_FONT,
     BODY_FONT,
@@ -230,7 +234,7 @@ When adding expressions to existing outfits:
             text="💡 Use 'Remove BG' button to fix background issues on any expression. "
                  "You must view ALL outfits before proceeding.",
             bg=BG_COLOR,
-            fg="#FFB347",  # Warning orange
+            fg=WARNING_TEXT,
             font=SMALL_FONT,
             wraplength=800,
             justify="left",
@@ -280,6 +284,15 @@ When adding expressions to existing outfits:
 
     def _on_mousewheel(self, event) -> None:
         """Handle mouse wheel for horizontal scrolling."""
+        # Don't scroll cards when a modal (Toplevel) has focus
+        try:
+            widget = event.widget
+            if not isinstance(widget, str):
+                top = widget.winfo_toplevel()
+                if isinstance(top, tk.Toplevel):
+                    return
+        except Exception:
+            pass
         self._canvas.xview_scroll(int(-1 * (event.delta / 120)), "units")
 
     def _prev_outfit(self) -> None:
@@ -904,7 +917,7 @@ When adding expressions to existing outfits:
             self._regenerating_expr = None
         else:
             self.hide_loading()
-        self._status_label.configure(text=f"Error: {error}", fg="#ff5555")
+        self._status_label.configure(text=f"Error: {error}", fg=ERROR_TEXT)
         show_error_dialog(self._canvas, "Generation Error", f"Failed to generate expressions:\n\n{error}")
 
     def _show_outfit_expressions(self) -> None:
@@ -938,7 +951,7 @@ When adding expressions to existing outfits:
         #                                              Total ≈ 365
         self._canvas.winfo_toplevel().update()
         win_h = self._canvas.winfo_toplevel().winfo_height()
-        max_thumb_h = max(int((win_h - 365) * 0.75), 250)
+        max_thumb_h = max(int((win_h - 365) * 0.90), 250)
 
         # Build horizontal row of cards (like outfits)
         col = 0
@@ -1021,7 +1034,7 @@ When adding expressions to existing outfits:
             img_label = tk.Label(card, image=tk_img, bg=CARD_BG)
             img_label.pack()
         except Exception:
-            tk.Label(card, text="Error", bg=CARD_BG, fg="#ff5555").pack()
+            tk.Label(card, text="Error", bg=CARD_BG, fg=ERROR_TEXT).pack()
 
         # Get expression description - check session expressions first, then master list
         expr_desc = None
@@ -1105,8 +1118,8 @@ When adding expressions to existing outfits:
 
     def _build_failed_expression_card(self, outfit_name: str, expr_key: str, max_h: int) -> tk.Frame:
         """Build a card for a failed expression with error styling and retry button."""
-        card = tk.Frame(self._inner_frame, bg="#3a1a1a", padx=6, pady=4,
-                        highlightbackground="#ff5555", highlightthickness=2)
+        card = tk.Frame(self._inner_frame, bg=ERROR_BG, padx=6, pady=4,
+                        highlightbackground=ERROR_TEXT, highlightthickness=2)
 
         # Create a placeholder image (dark gray with X)
         placeholder_w = 120
@@ -1130,7 +1143,7 @@ When adding expressions to existing outfits:
         tk_img = ImageTk.PhotoImage(placeholder)
         self._img_refs.append(tk_img)
 
-        img_label = tk.Label(card, image=tk_img, bg="#3a1a1a")
+        img_label = tk.Label(card, image=tk_img, bg=ERROR_BG)
         img_label.pack()
 
         # Get expression description
@@ -1155,16 +1168,16 @@ When adding expressions to existing outfits:
 
         tk.Label(
             card, text=display_text,
-            bg="#3a1a1a", fg="#ff5555", font=BODY_FONT, wraplength=140,
+            bg=ERROR_BG, fg=ERROR_TEXT, font=BODY_FONT, wraplength=140,
         ).pack(pady=(2, 0))
 
         tk.Label(
             card, text="Generation failed",
-            bg="#3a1a1a", fg="#ff8888", font=SMALL_FONT,
+            bg=ERROR_BG, fg=ERROR_TEXT, font=SMALL_FONT,
         ).pack(pady=(0, 2))
 
         # Regen button to retry
-        btn_row = tk.Frame(card, bg="#3a1a1a")
+        btn_row = tk.Frame(card, bg=ERROR_BG)
         btn_row.pack(pady=(2, 0))
 
         create_secondary_button(
@@ -1178,7 +1191,7 @@ When adding expressions to existing outfits:
     def _build_reference_card(self, path: Path, max_h: int) -> tk.Frame:
         """Build a non-editable reference card showing face 0 for existing outfits."""
         # Darker background to indicate non-editable
-        card = tk.Frame(self._inner_frame, bg="#333333", padx=6, pady=4)
+        card = tk.Frame(self._inner_frame, bg=CARD_BG, padx=6, pady=4)
 
         try:
             img = Image.open(path).convert("RGBA")
@@ -1195,16 +1208,16 @@ When adding expressions to existing outfits:
             tk_img = ImageTk.PhotoImage(composite)
             self._img_refs.append(tk_img)
 
-            img_label = tk.Label(card, image=tk_img, bg="#333333")
+            img_label = tk.Label(card, image=tk_img, bg=CARD_BG)
             img_label.pack()
         except Exception:
-            tk.Label(card, text="Error", bg="#333333", fg="#ff5555").pack()
+            tk.Label(card, text="Error", bg=CARD_BG, fg=ERROR_TEXT).pack()
 
         # Caption indicating this is a reference
         tk.Label(
             card,
             text="0: Reference",
-            bg="#333333",
+            bg=CARD_BG,
             fg=TEXT_SECONDARY,
             font=BODY_FONT,
         ).pack(pady=(2, 2))
@@ -1213,7 +1226,7 @@ When adding expressions to existing outfits:
         tk.Label(
             card,
             text="(existing)",
-            bg="#333333",
+            bg=CARD_BG,
             fg=TEXT_SECONDARY,
             font=SMALL_FONT,
         ).pack()
@@ -1307,14 +1320,14 @@ When adding expressions to existing outfits:
         card = self._expr_card_frames[key]
 
         # Create semi-transparent overlay frame
-        overlay = tk.Frame(card, bg="#1a1a2e")
+        overlay = tk.Frame(card, bg=OVERLAY_BG)
         overlay.place(relx=0, rely=0, relwidth=1, relheight=1)
 
         # Loading message
         tk.Label(
             overlay,
             text=message,
-            bg="#1a1a2e",
+            bg=OVERLAY_BG,
             fg=TEXT_COLOR,
             font=BODY_FONT,
             wraplength=150,
