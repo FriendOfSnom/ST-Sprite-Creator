@@ -1468,22 +1468,22 @@ Click Finish to close the wizard."""
         display = self.state.display_name or name
 
         # Discover all pose letters and their outfit names from the finalized folder
-        all_pose_outfits = {}  # letter -> outfit name
+        all_pose_outfits = {}  # letter -> first outfit name (for AI poses, this is the only one)
+        all_pose_outfit_lists = {}  # letter -> list of all outfit names (for standard poses with multiple)
         if char_folder and char_folder.exists():
             for d in sorted(char_folder.iterdir()):
                 if d.is_dir() and len(d.name) == 1 and d.name.isalpha():
                     letter = d.name
-                    outfit_name = letter  # fallback
+                    outfit_names = []
                     outfits_dir = d / "outfits"
                     if outfits_dir.is_dir():
                         for item in sorted(outfits_dir.iterdir()):
                             if item.is_file() and item.suffix.lower() in ('.png', '.webp'):
-                                outfit_name = item.stem
-                                break
+                                outfit_names.append(item.stem)
                             elif item.is_dir():
-                                outfit_name = item.name
-                                break
-                    all_pose_outfits[letter] = outfit_name
+                                outfit_names.append(item.name)
+                    all_pose_outfits[letter] = outfit_names[0] if outfit_names else letter
+                    all_pose_outfit_lists[letter] = outfit_names if outfit_names else [letter]
 
         # Read sprite_creator_poses from character.yml to distinguish SC vs original poses
         sc_poses = set()
@@ -1514,20 +1514,19 @@ Click Finish to close the wizard."""
         lines.append(f"Code name: {name}")
         lines.append("")
 
-        # Add compatibility note if there are both original and AI poses
-        if original_poses and ai_poses:
-            lines.append("POSE COMPATIBILITY")
-            lines.append("-" * 40)
-            orig_range = ", ".join(sorted(original_poses.keys()))
-            ai_range = ", ".join(sorted(ai_poses.keys()))
-            lines.append(f"Poses {orig_range} are standard ST poses.")
-            lines.append("  These work normally with all ST commands")
-            lines.append("  including 'outfit', 'accessory', etc.")
-            lines.append("")
-            lines.append(f"Poses {ai_range} are AI-generated poses.")
-            lines.append("  These use transparent outfit layers and")
-            lines.append("  work differently - see details below.")
-            lines.append("")
+        # Pose/Outfit reference table
+        lines.append("POSE & OUTFIT REFERENCE")
+        lines.append("-" * 40)
+        for letter in sorted(all_pose_outfits.keys()):
+            outfits = all_pose_outfit_lists.get(letter, [])
+            is_ai = letter in sc_poses
+            tag = " (AI)" if is_ai else ""
+            if len(outfits) == 1:
+                lines.append(f"  Pose {letter} = {outfits[0]}{tag}")
+            else:
+                outfit_str = ", ".join(outfits)
+                lines.append(f"  Pose {letter} = {outfit_str}{tag}")
+        lines.append("")
 
         # Setup (only for new characters, not add-to-existing)
         if not original_poses:
@@ -1537,10 +1536,58 @@ Click Finish to close the wizard."""
             lines.append(f"  game/scenario/<your_scenario>/characters/")
             lines.append("")
 
+        # Explain how AI sprites differ from standard ST
+        if original_poses and ai_poses:
+            # Mixed character: has both standard and AI poses
+            lines.append("STANDARD VS AI POSES")
+            lines.append("-" * 40)
+            orig_range = ", ".join(sorted(original_poses.keys()))
+            ai_range = ", ".join(sorted(ai_poses.keys()))
+            lines.append(f"This character has both standard ST poses")
+            lines.append(f"({orig_range}) and AI-generated poses ({ai_range}).")
+            lines.append("")
+            lines.append("With standard ST sprites, the body, outfit, and")
+            lines.append("face are separate layers. One pose can have many")
+            lines.append("outfits, and 'outfit' swaps the clothing layer.")
+            lines.append("")
+            lines.append("With AI sprites, each expression image contains")
+            lines.append("the full character (body + outfit + face all in")
+            lines.append("one). Each outfit gets its own pose letter with")
+            lines.append("its own set of expressions.")
+            lines.append("")
+            lines.append("The key difference when switching between them:")
+            lines.append("With standard poses, you can stay on the same")
+            lines.append("pose letter and just use 'outfit' to change")
+            lines.append("clothes. With AI poses, changing outfit means")
+            lines.append("changing the pose letter too. You should still")
+            lines.append("use the 'outfit' command either way — see the")
+            lines.append("examples below.")
+            lines.append("")
+        elif len(ai_poses) > 0:
+            # Pure AI character
+            lines.append("HOW AI SPRITES WORK")
+            lines.append("-" * 40)
+            lines.append("With standard ST sprites, the body, outfit, and")
+            lines.append("face are separate layers. One pose can have many")
+            lines.append("outfits, and 'outfit' swaps the clothing layer.")
+            lines.append("")
+            lines.append("With AI sprites, each expression image contains")
+            lines.append("the full character (body + outfit + face all in")
+            lines.append("one). Each outfit gets its own pose letter with")
+            lines.append("its own set of expressions.")
+            lines.append("")
+            lines.append("You use them the same way as regular ST sprites —")
+            lines.append("show, outfit, and expression commands all work.")
+            lines.append("Just remember: to change outfit, you change the")
+            lines.append("pose letter too. See the examples below.")
+            lines.append("")
+
         # Show
+        first_ai_outfit = list(ai_poses.values())[0] if ai_poses else "Base"
         lines.append("SHOWING THE CHARACTER")
         lines.append("-" * 40)
         lines.append(f"  show {name} {first_ai_letter}_0 at center")
+        lines.append(f"  outfit {first_ai_outfit}")
         lines.append(f"  with dissolve")
         lines.append("")
 
@@ -1553,25 +1600,52 @@ Click Finish to close the wizard."""
                 lines.append(f"  show {name} {first_ai_letter}_{i}    # {desc}")
             lines.append("")
 
-        # Outfits - the critical difference from standard ST
+        # Outfits
         if len(ai_poses) > 1:
-            lines.append("CHANGING OUTFITS (IMPORTANT)")
+            lines.append("CHANGING OUTFITS")
             lines.append("-" * 40)
-            lines.append("DO NOT use the 'outfit' command with")
-            lines.append("AI-generated poses. The outfit layer is")
-            lines.append("transparent, so it has no visible effect.")
+            lines.append("To change outfits, change the pose letter and")
+            lines.append("set the outfit for that pose:")
             lines.append("")
-            lines.append("Instead, change the POSE LETTER:")
             for letter, outfit_name in ai_poses.items():
-                lines.append(f"  show {name} {letter}_0    # {outfit_name}")
+                lines.append(f"  show {name} {letter}_0")
+                lines.append(f"  outfit {outfit_name}")
+                lines.append("")
+            lines.append("Each outfit has its own set of expressions,")
+            lines.append("so expression numbers work the same across")
+            lines.append("all outfits (0 = neutral, 1 = happy, etc.).")
             lines.append("")
+            # Mixed character: show example of switching between standard and AI
+            if original_poses:
+                first_orig = list(original_poses.keys())[0]
+                lines.append("SWITCHING BETWEEN STANDARD AND AI OUTFITS")
+                lines.append("-" * 40)
+                lines.append("Standard pose — stay on the same letter,")
+                lines.append("just change the outfit:")
+                lines.append(f"  show {name} {first_orig}_0")
+                lines.append(f"  outfit uniform")
+                lines.append(f"  # later...")
+                lines.append(f"  outfit casual")
+                lines.append("")
+                first_ai_key = list(ai_poses.keys())[0]
+                first_ai_name = list(ai_poses.values())[0]
+                lines.append("AI pose — change the letter AND the outfit:")
+                lines.append(f"  show {name} {first_ai_key}_0")
+                lines.append(f"  outfit {first_ai_name}")
+                if len(ai_poses) > 1:
+                    second_key = list(ai_poses.keys())[1]
+                    second_name = list(ai_poses.values())[1]
+                    lines.append(f"  # later...")
+                    lines.append(f"  show {name} {second_key}_0")
+                    lines.append(f"  outfit {second_name}")
+                lines.append("")
         elif len(ai_poses) == 1:
             lines.append("OUTFITS")
             lines.append("-" * 40)
             letter, outfit_name = next(iter(ai_poses.items()))
             lines.append(f"This character has one AI outfit ({outfit_name}).")
-            lines.append("DO NOT use the 'outfit' command - the outfit")
-            lines.append("layer is transparent for AI-generated poses.")
+            lines.append(f"Set it with:")
+            lines.append(f"  outfit {outfit_name}")
             lines.append("")
 
         # Positioning
