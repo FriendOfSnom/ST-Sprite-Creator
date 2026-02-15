@@ -19,6 +19,7 @@ from ...config import (
     CARD_BG,
     TEXT_COLOR,
     TEXT_SECONDARY,
+    TEXT_DISABLED,
     ACCENT_COLOR,
     ERROR_TEXT,
     ERROR_BG,
@@ -177,6 +178,13 @@ When adding expressions to existing outfits:
         self._selective_dirty_outfits: List[str] = []
         self._selective_idx: int = 0
 
+        # Rolling generation: show UI after first outfit completes, generate rest in background
+        self._outfit_gen_status: Dict[str, str] = {}   # "pending"/"generating"/"complete"
+        self._current_gen_outfit: Optional[str] = None  # outfit currently being generated
+        self._current_gen_progress: str = ""             # live progress text for inline display
+        self._first_outfit_shown: bool = False           # True after first outfit's cards shown
+        self._loading_overlay: Optional[tk.Frame] = None  # Overlay on canvas for loading state
+
     def build_ui(self, parent: tk.Frame) -> None:
         parent.configure(bg=BG_COLOR)
 
@@ -330,8 +338,10 @@ When adding expressions to existing outfits:
         current_idx = outfit_names.index(current_outfit)
         total = len(outfit_names)
 
-        # Mark as viewed
-        self._viewed_outfits.add(current_outfit)
+        # Mark as viewed — only count if outfit has completed expressions
+        # (viewing a generating/pending outfit doesn't count)
+        if current_outfit in self.state.expression_paths:
+            self._viewed_outfits.add(current_outfit)
 
         # Format display name - for existing outfits show "Pose A" instead of "existing_a"
         display_name = current_outfit
@@ -350,10 +360,16 @@ When adding expressions to existing outfits:
         self._next_outfit_btn.configure(state="normal" if current_idx < total - 1 else "disabled")
 
         # Update status to show progress and control wizard's Next button
+        still_generating = self._is_generating
         if viewed_count < total:
-            self._status_label.configure(
-                text=f"Review all outfits before continuing ({viewed_count}/{total} viewed)"
-            )
+            if still_generating:
+                self._status_label.configure(
+                    text=f"Generating remaining outfits... ({viewed_count}/{total} reviewed)"
+                )
+            else:
+                self._status_label.configure(
+                    text=f"Review all outfits before continuing ({viewed_count}/{total} viewed)"
+                )
             # Disable wizard's Next button until all outfits are viewed
             self.wizard._next_btn.configure(state="disabled")
         else:
@@ -470,17 +486,56 @@ When adding expressions to existing outfits:
         self.state.last_expression_sequence = list(self.state.expressions_sequence)
         # Clear the dirty set since we've regenerated everything that was dirty
         self.state.outfits_needing_expression_regen.clear()
+        self._current_gen_outfit = None
 
-        self._show_outfit_expressions()
+        if self._first_outfit_shown:
+            # Rolling mode: UI is already visible. Refresh current outfit's cards
+            # (in case user is viewing the last outfit that just completed)
+            current_outfit = self._outfit_var.get()
+            if current_outfit and current_outfit in self.state.expression_paths:
+                self._show_outfit_expressions()
+            self._update_progress_indicator()
+        else:
+            # Edge case: all outfits completed before UI was shown (e.g., single outfit)
+            self._first_outfit_shown = True
+            outfit_names = self._get_outfit_names()
+            if outfit_names:
+                self._outfit_var.set(outfit_names[0])
+            self._show_outfit_expressions()
+
         self._status_label.configure(text="All expressions generated. Review and accept.")
 
     def _start_expression_generation(self) -> None:
-        """Start generating expressions for all outfits."""
+        """Start generating expressions for all outfits (rolling generation).
+
+        Shows full-screen overlay only for the first outfit. After it completes,
+        the review UI appears and remaining outfits generate in the background.
+        """
         if self._is_generating:
             return
 
         self._is_generating = True
         self._current_outfit_idx = 0
+        self._first_outfit_shown = False
+        self._current_gen_progress = ""
+        self._current_gen_outfit = None
+
+        # Initialize per-outfit generation status (new + existing outfits)
+        self._outfit_gen_status.clear()
+        if self.state.generated_outfit_keys:
+            names = self.state.generated_outfit_keys.copy()
+        else:
+            names = []
+            if self.state.use_base_as_outfit:
+                names.append("base")
+            names.extend(self.state.selected_outfits)
+        # Include existing outfits in add-to-existing mode
+        if self.state.is_adding_to_existing and self.state.existing_outfits_to_extend:
+            for pose_letter in sorted(self.state.existing_outfits_to_extend.keys()):
+                names.append(f"existing_{pose_letter}")
+        for name in names:
+            self._outfit_gen_status[name] = "pending"
+
         self._status_label.configure(text="Generating expressions...")
         self.show_loading("Generating expressions...")
 
@@ -488,10 +543,12 @@ When adding expressions to existing outfits:
         self._generate_next_outfit()
 
     def _start_selective_expression_generation(self, dirty_outfits: set) -> None:
-        """Regenerate expressions only for specific dirty outfits.
+        """Regenerate expressions only for specific dirty outfits (rolling generation).
 
         Preserves existing expressions for clean outfits while regenerating
         only the outfits that were changed (e.g., via outfit regeneration).
+        Clean outfits already have data, so we show the UI immediately and
+        generate dirty outfits in the background with inline progress.
         """
         if self._is_generating:
             return
@@ -499,17 +556,37 @@ When adding expressions to existing outfits:
         self._is_generating = True
         self._selective_dirty_outfits = list(dirty_outfits)
         self._selective_idx = 0
+        self._current_gen_progress = ""
+        self._current_gen_outfit = None
+
+        # Initialize per-outfit status for dirty outfits
+        for name in self._selective_dirty_outfits:
+            self._outfit_gen_status[name] = "pending"
+
+        # Clean outfits already have expression data, so show the UI right away.
+        # Navigate to a clean outfit if the current one is dirty.
+        outfit_names = self._get_outfit_names()
+        current = self._outfit_var.get()
+        if current in dirty_outfits and outfit_names:
+            # Try to navigate to a clean outfit so user sees cards immediately
+            for name in outfit_names:
+                if name not in dirty_outfits:
+                    self._outfit_var.set(name)
+                    break
+
+        self._first_outfit_shown = True  # Skip full-screen overlay since clean outfits have data
+        self._show_outfit_expressions()
         self._status_label.configure(text="Regenerating changed expressions...")
-        self.show_loading("Regenerating expressions for changed outfits...")
 
         self._generate_next_selective_outfit()
 
     def _generate_next_selective_outfit(self) -> None:
-        """Generate expressions for the next dirty outfit in selective mode."""
+        """Generate expressions for the next dirty outfit in selective mode (rolling)."""
         if self._selective_idx >= len(self._selective_dirty_outfits):
             # All dirty outfits done
             self._is_generating = False
-            self.hide_loading()
+            if not self._first_outfit_shown:
+                self.hide_loading()
             self._on_all_expressions_complete()
             return
 
@@ -517,15 +594,27 @@ When adding expressions to existing outfits:
         outfit_num = self._selective_idx + 1
         total = len(self._selective_dirty_outfits)
 
+        # Update status tracking
+        self._outfit_gen_status[outfit_name] = "generating"
+        self._current_gen_outfit = outfit_name
+        self._current_gen_progress = ""
+
         self._status_label.configure(
             text=f"Regenerating expressions for {outfit_name}... ({outfit_num}/{total})"
         )
 
         def update_expression_progress(current: int, total_expr: int, expression_name: str):
-            self.schedule_callback(lambda: self.show_loading(
+            progress_text = (
                 f"Outfit {outfit_num}/{total}: {outfit_name}\n"
                 f"Expression {current}/{total_expr}: {expression_name.replace('_', ' ').title()}"
-            ))
+            )
+            if not self._first_outfit_shown:
+                # First dirty outfit: update full-screen overlay
+                self.schedule_callback(lambda: self.show_loading(progress_text))
+            else:
+                # Subsequent: inline progress
+                self._current_gen_progress = progress_text
+                self.schedule_callback(lambda: self._update_inline_progress())
 
         def generate():
             try:
@@ -539,7 +628,7 @@ When adding expressions to existing outfits:
         thread.start()
 
     def _on_selective_outfit_complete(self, outfit_name: str, expr_paths: Dict[str, Path], cleanup_dict: Dict[str, Tuple[bytes, bytes]]) -> None:
-        """Handle completion of one selectively regenerated outfit's expressions."""
+        """Handle completion of one selectively regenerated outfit's expressions (rolling)."""
         log_generation_complete(f"expressions_{outfit_name}", True, f"Regenerated {len(expr_paths)} expressions")
 
         # Update state (overwrites old paths for this outfit)
@@ -550,12 +639,30 @@ When adding expressions to existing outfits:
         # Update cleanup data
         self._expression_cleanup_data[outfit_name] = cleanup_dict
 
+        # Update generation status
+        self._outfit_gen_status[outfit_name] = "complete"
+
+        if not self._first_outfit_shown:
+            # First dirty outfit done — show review UI
+            self._first_outfit_shown = True
+            self.hide_loading()
+            self._outfit_var.set(outfit_name)
+            self._show_outfit_expressions()
+        else:
+            # Subsequent dirty outfit done — refresh if user is viewing it
+            if self._outfit_var.get() == outfit_name:
+                self._show_outfit_expressions()
+
         # Move to next dirty outfit
         self._selective_idx += 1
         self._generate_next_selective_outfit()
 
     def _generate_next_outfit(self) -> None:
-        """Generate expressions for the next new outfit."""
+        """Generate expressions for the next new outfit (rolling generation).
+
+        First outfit shows full-screen overlay. After it completes, subsequent
+        outfits generate in the background with inline progress updates.
+        """
         # Get only NEW outfit names (not existing outfits being extended)
         if self.state.generated_outfit_keys:
             new_outfit_names = self.state.generated_outfit_keys.copy()
@@ -577,7 +684,8 @@ When adding expressions to existing outfits:
                 if self.state.is_adding_to_existing:
                     log_info("EXPR: No existing outfits to extend (existing_outfits_to_extend is empty)")
                 self._is_generating = False
-                self.hide_loading()
+                if not self._first_outfit_shown:
+                    self.hide_loading()
                 self._on_all_expressions_complete()
             return
 
@@ -588,16 +696,28 @@ When adding expressions to existing outfits:
         total_existing = len(self.state.existing_outfits_to_extend) if self.state.is_adding_to_existing else 0
         total_outfits = total_new + total_existing
 
+        # Update status tracking
+        self._outfit_gen_status[outfit_name] = "generating"
+        self._current_gen_outfit = outfit_name
+        self._current_gen_progress = ""
+
         self._status_label.configure(
             text=f"Generating expressions for {outfit_name}... ({outfit_num}/{total_outfits})"
         )
 
         def update_expression_progress(current: int, total: int, expression_name: str):
-            """Update loading message with per-expression progress."""
-            self.schedule_callback(lambda: self.show_loading(
+            """Update progress — full overlay for first outfit, inline for subsequent."""
+            progress_text = (
                 f"Outfit {outfit_num}/{total_outfits}: {outfit_name}\n"
                 f"Expression {current}/{total}: {expression_name.replace('_', ' ').title()}"
-            ))
+            )
+            if not self._first_outfit_shown:
+                # First outfit: update full-screen overlay
+                self.schedule_callback(lambda: self.show_loading(progress_text))
+            else:
+                # Subsequent: store progress and update inline if user is viewing this outfit
+                self._current_gen_progress = progress_text
+                self.schedule_callback(lambda: self._update_inline_progress())
 
         def generate():
             try:
@@ -609,6 +729,29 @@ When adding expressions to existing outfits:
 
         thread = threading.Thread(target=generate, daemon=True)
         thread.start()
+
+    def _update_inline_progress(self) -> None:
+        """Update the inline loading indicator if user is viewing the generating outfit.
+
+        Instead of rebuilding the entire card set, just update the progress label
+        text to avoid flickering from frequent rebuilds.
+        """
+        if not self._current_gen_outfit:
+            return
+        current_outfit = self._outfit_var.get()
+        if current_outfit == self._current_gen_outfit:
+            # Try to update existing progress label in the loading overlay
+            if self._loading_overlay is not None:
+                try:
+                    for child in self._loading_overlay.winfo_children():
+                        if isinstance(child, tk.Label) and child.cget("fg") == TEXT_SECONDARY:
+                            if self._current_gen_progress:
+                                child.configure(text=self._current_gen_progress)
+                                return
+                except (tk.TclError, Exception):
+                    pass
+            # Fallback: full rebuild if label not found (first time showing)
+            self._show_outfit_expressions()
 
     def _do_expression_generation(self, outfit_name: str, progress_callback=None) -> Tuple[Dict[str, Path], Dict[str, Tuple[bytes, bytes]]]:
         """Generate expressions for one outfit."""
@@ -689,7 +832,11 @@ When adding expressions to existing outfits:
         return expr_paths, cleanup_dict
 
     def _on_outfit_expressions_complete(self, outfit_name: str, expr_paths: Dict[str, Path], cleanup_dict: Dict[str, Tuple[bytes, bytes]]) -> None:
-        """Handle completion of one outfit's expressions."""
+        """Handle completion of one outfit's expressions (rolling generation).
+
+        First completion: remove full-screen overlay and show review UI.
+        Subsequent completions: refresh cards if user is viewing that outfit.
+        """
         log_generation_complete(f"expressions_{outfit_name}", True, f"Generated {len(expr_paths)} expressions")
 
         # Store in state
@@ -700,17 +847,32 @@ When adding expressions to existing outfits:
         # Store cleanup data for manual BG removal
         self._expression_cleanup_data[outfit_name] = cleanup_dict
 
-        # Move to next outfit
+        # Update generation status
+        self._outfit_gen_status[outfit_name] = "complete"
+
+        if not self._first_outfit_shown:
+            # First outfit done — remove overlay and show review UI
+            self._first_outfit_shown = True
+            self.hide_loading()
+            self._outfit_var.set(outfit_name)
+            self._show_outfit_expressions()
+        else:
+            # Subsequent outfit done — refresh if user is viewing it
+            if self._outfit_var.get() == outfit_name:
+                self._show_outfit_expressions()
+
+        # Chain to next outfit
         self._current_outfit_idx += 1
         self._generate_next_outfit()
 
     def _generate_next_existing_outfit(self) -> None:
-        """Generate expressions for the next existing outfit (add-to-existing mode)."""
+        """Generate expressions for the next existing outfit (add-to-existing mode, rolling)."""
         if self._current_existing_outfit_idx >= len(self._existing_outfit_keys):
             # All done (both new and existing)
             log_info("EXPR_EXISTING: All existing outfit expressions complete")
             self._is_generating = False
-            self.hide_loading()
+            if not self._first_outfit_shown:
+                self.hide_loading()
             self._on_all_expressions_complete()
             return
 
@@ -728,6 +890,11 @@ When adding expressions to existing outfits:
         total_outfits = total_new + total_existing
         current_num = total_new + self._current_existing_outfit_idx + 1
 
+        # Update status tracking
+        self._outfit_gen_status[existing_name] = "generating"
+        self._current_gen_outfit = existing_name
+        self._current_gen_progress = ""
+
         self._status_label.configure(
             text=f"Adding expressions to pose {pose_letter}... ({current_num}/{total_outfits})"
         )
@@ -737,11 +904,16 @@ When adding expressions to existing outfits:
         total_expr = len(expressions_to_add)
 
         def update_expression_progress(current: int, total: int, expression_name: str):
-            """Update loading message with per-expression progress."""
-            self.schedule_callback(lambda: self.show_loading(
+            """Update progress — full overlay for first outfit, inline for subsequent."""
+            progress_text = (
                 f"Outfit {current_num}/{total_outfits}: Pose {pose_letter.upper()}\n"
                 f"Expression {current}/{total}: {expression_name.replace('_', ' ').title()}"
-            ))
+            )
+            if not self._first_outfit_shown:
+                self.schedule_callback(lambda: self.show_loading(progress_text))
+            else:
+                self._current_gen_progress = progress_text
+                self.schedule_callback(lambda: self._update_inline_progress())
 
         def generate():
             try:
@@ -891,7 +1063,7 @@ When adding expressions to existing outfits:
         return expr_paths, cleanup_dict
 
     def _on_existing_outfit_complete(self, outfit_name: str, expr_paths: Dict[str, Path], cleanup_dict: Dict[str, Tuple[bytes, bytes]]) -> None:
-        """Handle completion of one existing outfit's expression generation."""
+        """Handle completion of one existing outfit's expression generation (rolling)."""
         log_info(f"Existing outfit expressions complete: {outfit_name}")
 
         # Store in state
@@ -902,27 +1074,56 @@ When adding expressions to existing outfits:
         # Store cleanup data for manual BG removal
         self._expression_cleanup_data[outfit_name] = cleanup_dict
 
+        # Update generation status
+        self._outfit_gen_status[outfit_name] = "complete"
+
+        if not self._first_outfit_shown:
+            # First outfit done — show review UI
+            self._first_outfit_shown = True
+            self.hide_loading()
+            self._outfit_var.set(outfit_name)
+            self._show_outfit_expressions()
+        else:
+            # Subsequent — refresh if user is viewing it
+            if self._outfit_var.get() == outfit_name:
+                self._show_outfit_expressions()
+
         # Move to next existing outfit
         self._current_existing_outfit_idx += 1
         self._generate_next_existing_outfit()
 
-    def _on_generation_error(self, error: str) -> None:
-        """Handle generation error."""
-        self._is_generating = False
+    def _on_generation_error(self, error: str, is_single_regen: bool = False) -> None:
+        """Handle generation error.
+
+        Args:
+            error: Error message.
+            is_single_regen: True if this error is from a single-expression
+                regen (not from background outfit generation).
+        """
         log_generation_complete("expressions", False, error)
-        # Hide per-card loading if regenerating single expression, otherwise hide full-screen loading
-        if self._regenerating_expr is not None:
+        if is_single_regen and self._regenerating_expr is not None:
+            # Single-expression regen error — hide card overlay, don't touch background gen
             outfit_name, expr_key = self._regenerating_expr
             self._hide_expr_card_loading(outfit_name, expr_key)
             self._regenerating_expr = None
         else:
-            self.hide_loading()
+            # Background outfit generation error
+            self._is_generating = False
+            if not self._first_outfit_shown:
+                self.hide_loading()
         self._status_label.configure(text=f"Error: {error}", fg=ERROR_TEXT)
         show_error_dialog(self._canvas, "Generation Error", f"Failed to generate expressions:\n\n{error}")
 
     def _show_outfit_expressions(self) -> None:
-        """Display expressions for the currently selected outfit (horizontal layout like outfits)."""
+        """Display expressions for the currently selected outfit (horizontal layout like outfits).
+
+        If the outfit is still generating or pending, shows an inline loading
+        indicator instead of cards. Cards appear when generation completes.
+        """
         # Clear existing
+        if self._loading_overlay is not None:
+            self._loading_overlay.destroy()
+            self._loading_overlay = None
         for widget in self._inner_frame.winfo_children():
             widget.destroy()
         self._img_refs.clear()
@@ -933,7 +1134,46 @@ When adding expressions to existing outfits:
         self._update_progress_indicator()
 
         outfit_name = self._outfit_var.get()
-        if not outfit_name or outfit_name not in self.state.expression_paths:
+        if not outfit_name:
+            return
+
+        # Check if this outfit's expressions are available yet
+        if outfit_name not in self.state.expression_paths:
+            # Show loading overlay centered on the canvas (not inside the
+            # scrollable inner frame) so it's visible regardless of scroll.
+            # All nav buttons (Prev/Next, Back/Cancel) remain fully usable.
+            status = self._outfit_gen_status.get(outfit_name, "pending")
+            loading_frame = tk.Frame(self._canvas, bg=BG_COLOR)
+
+            if status == "generating":
+                tk.Label(
+                    loading_frame,
+                    text=f"Generating expressions for {outfit_name.capitalize()}...",
+                    bg=BG_COLOR, fg=ACCENT_COLOR, font=SECTION_FONT,
+                ).pack(pady=(0, 12))
+                # Show live progress if available
+                if self._current_gen_progress:
+                    tk.Label(
+                        loading_frame,
+                        text=self._current_gen_progress,
+                        bg=BG_COLOR, fg=TEXT_SECONDARY, font=BODY_FONT,
+                        justify="center",
+                    ).pack()
+            else:
+                tk.Label(
+                    loading_frame,
+                    text=f"Waiting for {outfit_name.capitalize()}...",
+                    bg=BG_COLOR, fg=TEXT_SECONDARY, font=SECTION_FONT,
+                ).pack()
+                tk.Label(
+                    loading_frame,
+                    text="Previous outfits are still being generated.",
+                    bg=BG_COLOR, fg=TEXT_DISABLED, font=BODY_FONT,
+                ).pack(pady=(8, 0))
+
+            # Place as floating overlay centered on the canvas viewport
+            loading_frame.place(relx=0.5, rely=0.35, anchor="center")
+            self._loading_overlay = loading_frame
             return
 
         expr_paths = self.state.expression_paths[outfit_name]
@@ -1346,11 +1586,21 @@ When adding expressions to existing outfits:
             del self._expr_card_overlays[key]
 
     def _regenerate_expression(self, outfit_name: str, expr_key: str) -> None:
-        """Regenerate a single expression."""
-        if self._is_generating:
+        """Regenerate a single expression.
+
+        Allowed during background generation if the target outfit is already
+        complete (different outfit is generating). Blocked only when the same
+        outfit is currently being generated, or another single-expression regen
+        is already in progress.
+        """
+        # Block if a single-expression regen is already running
+        if self._regenerating_expr is not None:
             return
 
-        self._is_generating = True
+        # Block if THIS outfit is currently being generated in the background
+        if self._is_generating and self._current_gen_outfit == outfit_name:
+            return
+
         self._regenerating_expr = (outfit_name, expr_key)
         self._status_label.configure(text=f"Regenerating expression {expr_key}...")
         # Use per-card loading instead of full-screen overlay
@@ -1365,7 +1615,7 @@ When adding expressions to existing outfits:
                 )
             except Exception as e:
                 error_msg = str(e)
-                self.schedule_callback(lambda msg=error_msg: self._on_generation_error(msg))
+                self.schedule_callback(lambda msg=error_msg: self._on_generation_error(msg, is_single_regen=True))
 
         thread = threading.Thread(target=regenerate, daemon=True)
         thread.start()
@@ -1487,7 +1737,6 @@ When adding expressions to existing outfits:
         original_bytes: Optional[bytes] = None, rembg_bytes: Optional[bytes] = None
     ) -> None:
         """Handle single expression regeneration completion."""
-        self._is_generating = False
         self._hide_expr_card_loading(outfit_name, expr_key)
         self._regenerating_expr = None
 
@@ -1549,7 +1798,8 @@ When adding expressions to existing outfits:
 
     def _open_manual_bg(self, outfit_name: str, expr_key: str, path: Path) -> None:
         """Open manual background removal for an expression."""
-        if self._is_generating:
+        # Block if THIS outfit is currently generating, but allow for completed outfits
+        if self._is_generating and self._current_gen_outfit == outfit_name:
             return
 
         # Get original black-bg bytes from stored cleanup data

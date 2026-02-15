@@ -486,6 +486,7 @@ When satisfied with all outfits, click Next to proceed to expression generation.
 
             if base_changed:
                 self.state.outfits_generated = False
+                self.state.base_pose_normalized_post_crop = False
                 self._start_outfit_generation()
                 return
 
@@ -562,6 +563,37 @@ When satisfied with all outfits, click Next to proceed to expression generation.
             shutil.copy2(self.state.base_pose_path, base_dest)
             # Update base_pose_path to point to the new location
             self.state.base_pose_path = base_dest
+
+        # Re-normalize cropped image through Gemini so its dimensions match
+        # generated output (~1MP). Without this, the Base outfit would use the
+        # raw crop dimensions while all other outfits use Gemini's output size.
+        if (
+            self.state.base_pose_path
+            and self.state.base_pose_path.exists()
+            and self.state.cropped_image_path is not None
+            and not self.state.base_pose_normalized_post_crop
+        ):
+            if progress_callback:
+                progress_callback(0, len(self.state.selected_outfits), "Normalizing base image")
+
+            from io import BytesIO
+            from ...api.gemini_client import call_gemini_image_edit, load_image_as_base64
+            from ...api.prompt_builders import build_normalize_existing_character_prompt
+
+            image_b64 = load_image_as_base64(self.state.base_pose_path)
+            prompt = build_normalize_existing_character_prompt()
+            result_bytes = call_gemini_image_edit(
+                api_key=self.state.api_key,
+                prompt=prompt,
+                image_b64=image_b64,
+                skip_background_removal=True,  # Keep black BG, don't run rembg
+            )
+
+            # Overwrite base_pose_path with the normalized version
+            normalized_img = Image.open(BytesIO(result_bytes)).convert("RGBA")
+            normalized_img.save(self.state.base_pose_path, format="PNG",
+                                compress_level=0, optimize=False)
+            self.state.base_pose_normalized_post_crop = True
 
         # Build outfit prompts with configuration (uses Gemini text API for random mode)
         # Note: For underwear, this returns a placeholder; actual prompt determined at generation

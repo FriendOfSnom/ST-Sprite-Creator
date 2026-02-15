@@ -14,7 +14,7 @@ from typing import Dict, List, Tuple
 # APPLICATION INFO
 # ═══════════════════════════════════════════════════════════════════════════════
 APP_NAME = "AI Sprite Creator"
-APP_VERSION = "1.0.6"
+APP_VERSION = "1.0.7"
 
 
 def get_resource_path(relative_path: str = "") -> Path:
@@ -66,6 +66,67 @@ def get_backup_dir(backup_id: str) -> Path:
 def generate_backup_id() -> str:
     """Generate a new unique backup ID for a character."""
     return uuid.uuid4().hex[:12]
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SAVED CUSTOM OUTFITS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def load_saved_outfits() -> List[Dict[str, str]]:
+    """Load saved custom outfits from config file.
+
+    Returns:
+        List of {"name": str, "description": str} dicts.
+    """
+    import json
+    if not CONFIG_PATH.exists():
+        return []
+    try:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            config = json.load(f)
+        return config.get("saved_outfits", [])
+    except (json.JSONDecodeError, IOError):
+        return []
+
+
+def save_outfit(name: str, description: str) -> None:
+    """Add a new saved outfit to config file."""
+    import json
+    config = {}
+    if CONFIG_PATH.exists():
+        try:
+            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                config = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+
+    outfits = config.get("saved_outfits", [])
+    outfits.append({"name": name, "description": description})
+    config["saved_outfits"] = outfits
+
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2)
+
+
+def delete_saved_outfit(index: int) -> None:
+    """Remove a saved outfit by index."""
+    import json
+    if not CONFIG_PATH.exists():
+        return
+    try:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            config = json.load(f)
+    except (json.JSONDecodeError, IOError):
+        return
+
+    outfits = config.get("saved_outfits", [])
+    if 0 <= index < len(outfits):
+        outfits.pop(index)
+        config["saved_outfits"] = outfits
+        with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+            json.dump(config, f, indent=2)
+
 
 # Gemini API constants
 GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image"

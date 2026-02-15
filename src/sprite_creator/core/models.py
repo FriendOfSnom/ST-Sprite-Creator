@@ -62,6 +62,7 @@ class WizardState:
     # Step 5: Crop
     crop_y: Optional[int] = None
     cropped_image_path: Optional[Path] = None
+    base_pose_normalized_post_crop: bool = False  # True after cropped image re-normalized via Gemini
 
     # Step 6-7: Base generation
     base_pose_path: Optional[Path] = None

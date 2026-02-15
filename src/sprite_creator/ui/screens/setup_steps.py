@@ -40,6 +40,9 @@ from ...config import (
     SMALL_FONT,
     SMALL_FONT_BOLD,
     get_backup_dir,
+    load_saved_outfits,
+    save_outfit,
+    delete_saved_outfit,
 )
 from ..tk_common import (
     create_primary_button,
@@ -1809,6 +1812,8 @@ Click Next when your character looks right."""
         temp_path = temp_dir / f"cropped_{id(self)}.png"
         self._crop_original_img.save(temp_path, format="PNG")
         self.state.cropped_image_path = temp_path
+        # Invalidate post-crop normalization so it re-runs on next outfit generation
+        self.state.base_pose_normalized_post_crop = False
 
     # =========================================================================
     # Add-to-Existing Mode Methods
@@ -2512,7 +2517,7 @@ You must select at least one option:
 
 Click Next when you've made your selections."""
 
-    MAX_OUTFITS = 15
+    MAX_OUTFITS = 20
     MAX_EXPRESSIONS = 30
 
     # Expression category groupings
@@ -2537,7 +2542,7 @@ Click Next when you've made your selections."""
         self._expr_vars: Dict[str, tk.IntVar] = {}
         self._expr_chips: Dict[str, ToggleChip] = {}  # expr key -> chip widget
         self._uniform_card: Optional[tk.Frame] = None  # Track uniform card for hiding
-        self._has_standard_uniform: bool = False  # Track if standard uniform option is available
+        self._has_standard_uniform: bool = True  # ST Uniform always available for all archetypes
 
         # Base outfit option
         self._use_base_as_outfit_var: Optional[tk.IntVar] = None
@@ -2723,14 +2728,24 @@ Click Next when you've made your selections."""
         self._custom_outfits_frame = tk.Frame(self._outfit_scroll_frame, bg=BG_COLOR)
         self._custom_outfits_frame.pack(fill="x", pady=(8, 0))
 
-        # Add custom outfit button
+        # Button row: Add Custom + Saved Outfits
+        outfit_btn_row = tk.Frame(self._outfit_scroll_frame, bg=BG_COLOR)
+        outfit_btn_row.pack(anchor="w", pady=(8, 0))
+
         self._add_outfit_btn = create_secondary_button(
-            self._outfit_scroll_frame,
+            outfit_btn_row,
             "+ Add Custom Outfit",
             self._add_custom_outfit,
             width=18,
         )
-        self._add_outfit_btn.pack(anchor="w", pady=(8, 0))
+        self._add_outfit_btn.pack(side="left", padx=(0, 8))
+
+        create_secondary_button(
+            outfit_btn_row,
+            "Saved Outfits",
+            self._open_saved_outfits_dialog,
+            width=14,
+        ).pack(side="left")
 
         # ================================================================
         # RIGHT COLUMN: Expressions
@@ -3190,6 +3205,212 @@ Click Next when you've made your selections."""
             entry_data["frame"].destroy()
             self._update_add_buttons()
 
+    def _add_custom_outfit_with_data(self, name: str, desc: str) -> bool:
+        """Add a custom outfit entry pre-filled with name and description.
+
+        Returns True if added, False if at limit.
+        """
+        if self._get_total_outfit_count() >= self.MAX_OUTFITS:
+            return False
+
+        row = tk.Frame(self._custom_outfits_frame, bg=BG_COLOR)
+        row.pack(fill="x", pady=2)
+
+        tk.Label(row, text="Name:", bg=BG_COLOR, fg=TEXT_SECONDARY, font=SMALL_FONT).pack(side="left")
+        name_entry = tk.Entry(row, width=12, bg="#1E1E1E", fg=TEXT_COLOR, font=SMALL_FONT)
+        name_entry.pack(side="left", padx=(4, 8))
+        name_entry.insert(0, name)
+
+        tk.Label(row, text="Description:", bg=BG_COLOR, fg=TEXT_SECONDARY, font=SMALL_FONT).pack(side="left")
+        desc_entry = tk.Entry(row, width=25, bg="#1E1E1E", fg=TEXT_COLOR, font=SMALL_FONT)
+        desc_entry.pack(side="left", padx=(4, 8))
+        desc_entry.insert(0, desc)
+
+        entry_data = {"frame": row, "name_entry": name_entry, "desc_entry": desc_entry}
+        remove_btn = create_secondary_button(
+            row, "-", lambda d=entry_data: self._remove_custom_outfit(d), width=3
+        )
+        remove_btn.pack(side="left")
+
+        self._custom_outfits.append(entry_data)
+        self._update_add_buttons()
+        return True
+
+    def _open_saved_outfits_dialog(self) -> None:
+        """Open a popup dialog to manage and load saved custom outfits."""
+        saved = load_saved_outfits()
+
+        dialog = tk.Toplevel(self.wizard.root)
+        dialog.title("Saved Outfits")
+        dialog.configure(bg=BG_COLOR)
+        dialog.geometry("550x600")
+        dialog.resizable(False, True)
+        dialog.transient(self.wizard.root)
+        dialog.grab_set()
+
+        # Title
+        tk.Label(
+            dialog, text="Saved Outfits", bg=BG_COLOR, fg=TEXT_COLOR, font=SECTION_FONT,
+        ).pack(pady=(12, 8))
+
+        # Scrollable list area
+        list_frame = tk.Frame(dialog, bg=BG_COLOR)
+        list_frame.pack(fill="both", expand=True, padx=12)
+
+        list_canvas = tk.Canvas(list_frame, bg=BG_COLOR, highlightthickness=0)
+        list_scrollbar = ttk.Scrollbar(list_frame, orient="vertical", command=list_canvas.yview)
+        list_canvas.configure(yscrollcommand=list_scrollbar.set)
+
+        list_scrollbar.pack(side="right", fill="y")
+        list_canvas.pack(side="left", fill="both", expand=True)
+
+        inner = tk.Frame(list_canvas, bg=BG_COLOR)
+        canvas_window_id = list_canvas.create_window((0, 0), window=inner, anchor="nw")
+        inner.bind("<Configure>", lambda e: list_canvas.configure(scrollregion=list_canvas.bbox("all")))
+        # Stretch inner frame to fill canvas width so cards span full width
+        list_canvas.bind("<Configure>", lambda e: list_canvas.itemconfigure(canvas_window_id, width=e.width))
+
+        # Scroll wheel isolation — only scroll this canvas, not the parent
+        def on_popup_scroll(event):
+            list_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            return "break"
+
+        list_canvas.bind("<MouseWheel>", on_popup_scroll)
+        inner.bind("<MouseWheel>", on_popup_scroll)
+
+        # Track checkboxes and their indices
+        check_vars = []
+
+        def rebuild_list():
+            """Rebuild the saved outfits list from current data."""
+            nonlocal saved, check_vars
+            saved = load_saved_outfits()
+            check_vars.clear()
+            for w in inner.winfo_children():
+                w.destroy()
+
+            if not saved:
+                tk.Label(
+                    inner, text="No saved outfits yet.\nUse the form below to save one.",
+                    bg=BG_COLOR, fg=TEXT_SECONDARY, font=BODY_FONT, justify="center",
+                ).pack(pady=20)
+                return
+
+            for i, outfit in enumerate(saved):
+                item = tk.Frame(inner, bg=CARD_BG, padx=8, pady=6)
+                item.pack(fill="x", pady=(0, 4))
+                item.bind("<MouseWheel>", on_popup_scroll)
+
+                var = tk.IntVar(value=0)
+                check_vars.append((var, i))
+
+                top_row = tk.Frame(item, bg=CARD_BG)
+                top_row.pack(fill="x")
+                top_row.bind("<MouseWheel>", on_popup_scroll)
+
+                cb = ttk.Checkbutton(top_row, variable=var, style="Dark.TCheckbutton")
+                cb.pack(side="left")
+
+                tk.Label(
+                    top_row, text=outfit["name"], bg=CARD_BG, fg=TEXT_COLOR,
+                    font=SMALL_FONT_BOLD, anchor="w",
+                ).pack(side="left", padx=(4, 0))
+
+                # Delete button
+                def make_delete(idx=i):
+                    def do_delete():
+                        delete_saved_outfit(idx)
+                        rebuild_list()
+                    return do_delete
+
+                create_secondary_button(
+                    top_row, "X", make_delete(), width=2
+                ).pack(side="right")
+
+                # Description preview (truncated)
+                desc_text = outfit.get("description", "")
+                if len(desc_text) > 100:
+                    desc_text = desc_text[:97] + "..."
+                desc_label = tk.Label(
+                    item, text=desc_text, bg=CARD_BG, fg=TEXT_SECONDARY,
+                    font=SMALL_FONT, anchor="w", wraplength=450, justify="left",
+                )
+                desc_label.pack(fill="x", padx=(28, 0))
+                desc_label.bind("<MouseWheel>", on_popup_scroll)
+
+        rebuild_list()
+
+        # Separator
+        tk.Frame(dialog, bg=BORDER_COLOR, height=1).pack(fill="x", padx=12, pady=(8, 0))
+
+        # Save New section
+        save_frame = tk.Frame(dialog, bg=BG_COLOR)
+        save_frame.pack(fill="x", padx=12, pady=(8, 4))
+
+        tk.Label(save_frame, text="Save New Outfit:", bg=BG_COLOR, fg=TEXT_COLOR, font=SMALL_FONT_BOLD).pack(anchor="w")
+
+        name_row = tk.Frame(save_frame, bg=BG_COLOR)
+        name_row.pack(fill="x", pady=(4, 2))
+        tk.Label(name_row, text="Name:", bg=BG_COLOR, fg=TEXT_SECONDARY, font=SMALL_FONT).pack(side="left")
+        new_name = tk.Entry(name_row, width=20, bg="#1E1E1E", fg=TEXT_COLOR, font=SMALL_FONT, insertbackground=TEXT_COLOR)
+        new_name.pack(side="left", padx=(4, 0), fill="x", expand=True)
+
+        desc_row = tk.Frame(save_frame, bg=BG_COLOR)
+        desc_row.pack(fill="x", pady=(2, 4))
+        tk.Label(desc_row, text="Desc:", bg=BG_COLOR, fg=TEXT_SECONDARY, font=SMALL_FONT).pack(side="left")
+        new_desc = tk.Entry(desc_row, width=40, bg="#1E1E1E", fg=TEXT_COLOR, font=SMALL_FONT, insertbackground=TEXT_COLOR)
+        new_desc.pack(side="left", padx=(4, 0), fill="x", expand=True)
+
+        def do_save():
+            n = new_name.get().strip()
+            d = new_desc.get().strip()
+            if not n:
+                messagebox.showwarning("Missing Name", "Enter a name for the outfit.", parent=dialog)
+                return
+            if not d:
+                messagebox.showwarning("Missing Description", "Enter a description for the outfit.", parent=dialog)
+                return
+            save_outfit(n, d)
+            new_name.delete(0, "end")
+            new_desc.delete(0, "end")
+            rebuild_list()
+
+        create_secondary_button(save_frame, "Save to List", do_save, width=12).pack(anchor="e")
+
+        # Separator
+        tk.Frame(dialog, bg=BORDER_COLOR, height=1).pack(fill="x", padx=12, pady=(4, 0))
+
+        # Action buttons
+        btn_frame = tk.Frame(dialog, bg=BG_COLOR)
+        btn_frame.pack(fill="x", padx=12, pady=(8, 12))
+
+        def do_add_selected():
+            selected = [(var, idx) for var, idx in check_vars if var.get() == 1]
+            if not selected:
+                messagebox.showinfo("No Selection", "Check at least one outfit to add.", parent=dialog)
+                return
+
+            current_saved = load_saved_outfits()
+            added = 0
+            skipped = 0
+            for var, idx in selected:
+                if idx < len(current_saved):
+                    outfit = current_saved[idx]
+                    if self._add_custom_outfit_with_data(outfit["name"], outfit["description"]):
+                        added += 1
+                    else:
+                        skipped += 1
+
+            dialog.destroy()
+            if skipped > 0:
+                messagebox.showinfo(
+                    "Limit Reached",
+                    f"Added {added} outfit(s). {skipped} skipped (max {self.MAX_OUTFITS} outfits)."
+                )
+
+        create_primary_button(btn_frame, "Add Selected", do_add_selected, width=14).pack(side="right", padx=(8, 0))
+        create_secondary_button(btn_frame, "Cancel", dialog.destroy, width=10).pack(side="right")
+
     def _add_custom_expression(self) -> None:
         """Add a new custom expression entry with auto-incremented key."""
         if self._get_total_expression_count() >= self.MAX_EXPRESSIONS:
@@ -3508,37 +3729,6 @@ Click Next when you've made your selections."""
 
     def on_enter(self) -> None:
         """Prepare options step based on archetype."""
-        # Show/hide uniform card and standard option based on archetype
-        arch_lower = self.state.archetype_label.lower()
-        uniform_eligible = (
-            (arch_lower == "young woman" and self.state.gender_style == "f")
-            or (arch_lower == "young man" and self.state.gender_style == "m")
-        )
-
-        # Hide entire uniform card for non-eligible archetypes
-        if self._uniform_card:
-            if uniform_eligible:
-                self._uniform_card.pack(fill="x", pady=(0, 4))
-                # Add "ST Uniform" option to segmented control if not already there
-                if "uniform" in self._outfit_segments:
-                    seg = self._outfit_segments["uniform"]
-                    if "ST Uniform" not in seg._buttons:
-                        seg.add_option("ST Uniform")
-                self._has_standard_uniform = True
-            else:
-                self._uniform_card.pack_forget()
-                # Uncheck uniform if it was selected
-                if "uniform" in self._outfit_vars:
-                    self._outfit_vars["uniform"].set(0)
-                # Remove standard option from segmented control
-                if "uniform" in self._outfit_segments:
-                    seg = self._outfit_segments["uniform"]
-                    seg.remove_option("ST Uniform")
-                # Reset to random if was on standard
-                if self._outfit_mode_vars.get("uniform", tk.StringVar()).get() == "standard_uniform":
-                    self._outfit_mode_vars["uniform"].set("random")
-                self._has_standard_uniform = False
-
         # Hide "Include Base Image as Outfit" in add-to-existing mode (irrelevant)
         if self.state.is_adding_to_existing:
             self._base_outfit_frame.pack_forget()

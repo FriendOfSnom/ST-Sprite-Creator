@@ -1124,8 +1124,9 @@ Opens the character folder in your file explorer. From here you can:
 - Review individual images
 - Make manual adjustments if needed
 
-USING IN REN'PY
-Copy the entire character folder to your game's images directory. The character.yml file contains all the metadata Ren'Py needs.
+USING IN STUDENT TRANSFER
+Copy the entire character folder into your scenario's characters folder:
+  game/scenario/<your_scenario>/characters/
 
 MAKING CHANGES
 If you need to regenerate or modify anything, you'll need to run the wizard again. The existing character folder will be preserved (a new one is created with a unique name).
@@ -1532,8 +1533,8 @@ Click Finish to close the wizard."""
         if not original_poses:
             lines.append("SETUP")
             lines.append("-" * 40)
-            lines.append(f'Copy the "{name}" folder to:')
-            lines.append(f"  game/characters/{name}/")
+            lines.append(f'Copy the "{name}" folder into your scenario\'s characters folder:')
+            lines.append(f"  game/scenario/<your_scenario>/characters/")
             lines.append("")
 
         # Show
