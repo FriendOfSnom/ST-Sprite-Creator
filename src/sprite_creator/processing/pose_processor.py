@@ -50,6 +50,7 @@ def write_character_yml(
     *,
     game: Optional[str] = None,
     archetype: Optional[str] = None,
+    hair_length: Optional[str] = None,
     sprite_creator_poses: Optional[List[str]] = None,
     original_size: Optional[List[int]] = None,
     backup_id: Optional[str] = None,
@@ -86,6 +87,8 @@ def write_character_yml(
         data["game"] = game
     if archetype:
         data["archetype"] = archetype
+    if hair_length:
+        data["hair_length"] = hair_length
     if sprite_creator_poses:
         data["sprite_creator_poses"] = sorted(sprite_creator_poses)
     if original_size:
@@ -110,6 +113,7 @@ def _generate_outfit_with_safety_recovery(
     outfit_prompt_config: Dict[str, Dict[str, Optional[str]]],
     skip_background_removal: bool = False,
     tier_progress_callback: Optional[Callable[[int, int], None]] = None,
+    hair_length: str = "",
 ) -> Optional[Tuple[bytes, str]]:
     """
     Generate outfit with multi-tier safety error recovery.
@@ -132,6 +136,7 @@ def _generate_outfit_with_safety_recovery(
         archetype_label: Character archetype.
         outfit_prompt_config: Per-outfit configuration.
         skip_background_removal: If True, return raw Gemini output without rembg.
+        hair_length: Hair length for styling (e.g., "short", "medium"). Empty for no control.
 
     Returns:
         Tuple of (image_bytes, successful_prompt) if successful, None if all tiers fail.
@@ -144,7 +149,7 @@ def _generate_outfit_with_safety_recovery(
     def try_generate(desc: str, tier_name: str) -> Optional[bytes]:
         tried_prompts.add(desc)
         try:
-            prompt = build_outfit_prompt(desc, gender_style, background_color)
+            prompt = build_outfit_prompt(desc, gender_style, background_color, hair_length=hair_length)
             return call_gemini_image_edit(api_key, prompt, image_b64, skip_background_removal)
         except GeminiSafetyError as e:
             print(f"[WARN] {tier_name}: Safety error during '{outfit_key}' generation")
@@ -250,6 +255,7 @@ def generate_single_outfit(
     archetype_label: str,
     for_interactive_review: bool = False,
     tier_progress_callback: Optional[Callable[[int, int], None]] = None,
+    hair_length: str = "",
 ) -> Optional[Path] | Optional[Tuple[Path, bytes, bytes, str]]:
     """
     Generate or regenerate a single outfit image for the given key.
@@ -290,6 +296,7 @@ def generate_single_outfit(
             outfit_desc,
             outfit_key=outfit_key,  # Pass key for correct filename (uniform2, etc.)
             for_interactive_review=for_interactive_review,
+            hair_length=hair_length,
         )
         if result is None:
             return None
@@ -318,6 +325,7 @@ def generate_single_outfit(
                 outfit_prompt_config,
                 skip_background_removal=True,
                 tier_progress_callback=tier_progress_callback,
+                hair_length=hair_length,
             )
 
             if result is None:
@@ -344,6 +352,7 @@ def generate_single_outfit(
                 archetype_label,
                 outfit_prompt_config,
                 tier_progress_callback=tier_progress_callback,
+                hair_length=hair_length,
             )
 
             if result is None:
@@ -370,6 +379,7 @@ def generate_standard_uniform_outfit(
     outfit_desc: str,  # Kept for signature compatibility
     outfit_key: str = "uniform",  # The actual outfit key (uniform, uniform2, etc.)
     for_interactive_review: bool = False,
+    hair_length: str = "",
 ) -> Path | Tuple[Path, bytes, bytes]:
     """
     Generate the standardized school uniform outfit using reference images.
@@ -402,7 +412,7 @@ def generate_standard_uniform_outfit(
         # Fallback to normal outfit prompt path
         print("[WARN] No uniform reference found, falling back to normal prompt-based uniform.")
         image_b64 = load_image_as_base64(base_pose_path)
-        prompt = build_outfit_prompt(outfit_desc, gender_style, background_color)
+        prompt = build_outfit_prompt(outfit_desc, gender_style, background_color, hair_length=hair_length)
 
         if for_interactive_review:
             original_bytes = call_gemini_image_edit(api_key, prompt, image_b64, skip_background_removal=True)
@@ -427,6 +437,7 @@ def generate_standard_uniform_outfit(
         archetype_label,
         gender_style,
         background_color,
+        hair_length=hair_length,
     )
 
     # Use call_gemini_image_edit (like casual/athletic outfits) to properly edit
@@ -468,6 +479,7 @@ def generate_outfits_once(
     include_base_outfit: bool = True,
     for_interactive_review: bool = False,
     progress_callback: Optional[Callable[[int, int, str], None]] = None,
+    hair_length: str = "",
 ) -> List[Path] | Tuple[List[Path], List[Tuple[bytes, bytes]], Dict[str, str]]:
     """
     Generate outfits for a pose.
@@ -544,6 +556,7 @@ def generate_outfits_once(
             archetype_label,
             for_interactive_review=for_interactive_review,
             tier_progress_callback=_tier_cb if key == "underwear" else None,
+            hair_length=hair_length,
         )
 
         if result is None:

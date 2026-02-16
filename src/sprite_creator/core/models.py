@@ -53,6 +53,7 @@ class WizardState:
     archetype_label: str = ""
     gender_style: str = ""
     concept_text: str = ""  # Only for prompt mode
+    hair_length: str = ""  # Hair length for female archetypes (super short/short/medium/long/super long)
     selected_outfits: List[str] = field(default_factory=list)
     expressions_sequence: List[Tuple[str, str]] = field(default_factory=list)
     outfit_prompt_config: Dict[str, Dict] = field(default_factory=dict)

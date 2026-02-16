@@ -628,6 +628,7 @@ When satisfied with all outfits, click Next to proceed to expression generation.
             include_base_outfit=self.state.use_base_as_outfit,
             for_interactive_review=True,
             progress_callback=progress_callback,
+            hair_length=self.state.hair_length,
         )
 
         return paths, cleanup_data, used_prompts
@@ -1127,6 +1128,7 @@ When satisfied with all outfits, click Next to proceed to expression generation.
                         outfit_prompt_config=self.state.outfit_prompt_config,
                         archetype_label=self.state.archetype_label,
                         for_interactive_review=True,
+                        hair_length=self.state.hair_length,
                     )
                     if result is not None:
                         new_path, original_bytes, rembg_bytes, used_prompt = result
@@ -1151,6 +1153,7 @@ When satisfied with all outfits, click Next to proceed to expression generation.
                 outfit_prompt_config=self.state.outfit_prompt_config,
                 archetype_label=self.state.archetype_label,
                 for_interactive_review=True,
+                hair_length=self.state.hair_length,
             )
 
             if result is None:
@@ -1196,6 +1199,7 @@ When satisfied with all outfits, click Next to proceed to expression generation.
             outfit_prompt_config=self.state.outfit_prompt_config,
             archetype_label=self.state.archetype_label,
             for_interactive_review=True,
+            hair_length=self.state.hair_length,
         )
 
         if result is None:
@@ -1314,6 +1318,7 @@ When satisfied with all outfits, click Next to proceed to expression generation.
             outfit_prompt_config=self.state.outfit_prompt_config,
             archetype_label=self.state.archetype_label,
             for_interactive_review=True,
+            hair_length=self.state.hair_length,
         )
 
         if result is None:

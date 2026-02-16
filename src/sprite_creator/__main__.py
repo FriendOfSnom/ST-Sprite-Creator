@@ -358,6 +358,7 @@ def run_add_to_existing():
     existing_eye_line = char_data.get('eye_line', 0.0)
     existing_name_color = char_data.get('name_color', '#ffffff')
     existing_archetype = char_data.get('archetype', '')  # Empty if not created by this app
+    existing_hair_length = char_data.get('hair_length', '')  # Hair length for female archetypes
 
     print(f"[INFO] Character: {display_name}")
     print(f"[INFO] Existing poses: {', '.join(pose_dirs)}")
@@ -379,6 +380,7 @@ def run_add_to_existing():
             existing_eye_line=existing_eye_line,
             existing_name_color=existing_name_color,
             existing_archetype=existing_archetype,
+            existing_hair_length=existing_hair_length,
         )
         if result:
             log_info(f"Add to existing complete: {display_name}")

@@ -782,12 +782,14 @@ class ToggleChip(tk.Frame):
         selected: bool = False,
         on_toggle: Optional[Callable] = None,
         enabled: bool = True,
+        style: str = "accent",
     ):
         super().__init__(parent, bg=CARD_BG, padx=8, pady=4, cursor="hand2" if enabled else "arrow")
         self._selected = selected
         self._on_toggle = on_toggle
         self._enabled = enabled
         self._text = text
+        self._style = style  # "accent" (blue) or "warning" (orange/red)
 
         self._label = tk.Label(
             self,
@@ -821,18 +823,33 @@ class ToggleChip(tk.Frame):
         if not self._enabled:
             return
         if not self._selected:
-            self.configure(highlightbackground=TEXT_SECONDARY, highlightthickness=1)
+            hover_color = WARNING_TEXT if self._style == "warning" else TEXT_SECONDARY
+            self.configure(highlightbackground=hover_color, highlightthickness=1)
 
     def _on_leave(self, event=None):
         self._update_appearance()
 
     def _update_appearance(self):
-        if self._selected:
-            self.configure(bg=CARD_BG, highlightbackground=ACCENT_COLOR, highlightthickness=2)
-            self._label.configure(bg=CARD_BG, fg=ACCENT_COLOR, font=SMALL_FONT_BOLD)
+        if not self._enabled:
+            # Disabled: greyed out regardless of style
+            self.configure(bg=BG_SECONDARY, highlightbackground="#333333", highlightthickness=1)
+            self._label.configure(bg=BG_SECONDARY, fg=TEXT_DISABLED, font=SMALL_FONT)
+        elif self._style == "warning":
+            # Warning style: orange unselected, red selected
+            if self._selected:
+                self.configure(bg=CARD_BG, highlightbackground=DANGER_COLOR, highlightthickness=2)
+                self._label.configure(bg=CARD_BG, fg=DANGER_COLOR, font=SMALL_FONT_BOLD)
+            else:
+                self.configure(bg=CARD_BG, highlightbackground=WARNING_TEXT, highlightthickness=1)
+                self._label.configure(bg=CARD_BG, fg=WARNING_TEXT, font=SMALL_FONT)
         else:
-            self.configure(bg=CARD_BG, highlightbackground=BORDER_COLOR, highlightthickness=1)
-            self._label.configure(bg=CARD_BG, fg=TEXT_SECONDARY, font=SMALL_FONT)
+            # Default accent style: blue
+            if self._selected:
+                self.configure(bg=CARD_BG, highlightbackground=ACCENT_COLOR, highlightthickness=2)
+                self._label.configure(bg=CARD_BG, fg=ACCENT_COLOR, font=SMALL_FONT_BOLD)
+            else:
+                self.configure(bg=CARD_BG, highlightbackground=BORDER_COLOR, highlightthickness=1)
+                self._label.configure(bg=CARD_BG, fg=TEXT_SECONDARY, font=SMALL_FONT)
 
     @property
     def selected(self) -> bool:
@@ -865,9 +882,7 @@ class ToggleChip(tk.Frame):
             self.unbind("<Leave>")
             self._label.unbind("<Enter>")
             self._label.unbind("<Leave>")
-            # Grey out appearance
-            self.configure(bg=BG_SECONDARY, highlightbackground="#333333", highlightthickness=1)
-            self._label.configure(bg=BG_SECONDARY, fg=TEXT_DISABLED, font=SMALL_FONT)
+            self._update_appearance()
 
     @property
     def text(self) -> str:
@@ -880,9 +895,10 @@ def create_toggle_chip(
     selected: bool = False,
     on_toggle: Optional[Callable] = None,
     enabled: bool = True,
+    style: str = "accent",
 ) -> ToggleChip:
     """Create a toggle chip widget."""
-    return ToggleChip(parent, text, selected, on_toggle, enabled)
+    return ToggleChip(parent, text, selected, on_toggle, enabled, style=style)
 
 
 class FilledChip(tk.Frame):

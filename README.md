@@ -67,6 +67,7 @@ Add new outfits or expressions to an existing character folder:
 - Select a base sprite from the character's existing images
 - Normalize it to match AI output resolution
 - Generate new outfits that match the existing character's style
+- Add missing expressions or replace existing ones that came out poorly
 - New outfits become new pose letters (c, d, e...)
 - Existing settings (voice, name, eye line) are preserved
 
@@ -177,7 +178,7 @@ Use the **Clear Backups** button on the launcher to free disk space. Note that c
 
 ## License
 
-This software is provided as-is for educational and personal use.
+This project is licensed under the [GNU Affero General Public License v3.0](LICENSE).
 
 ---
 

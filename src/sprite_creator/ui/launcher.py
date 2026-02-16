@@ -65,6 +65,7 @@ Add new content to an existing character folder:
 - Select a base sprite, then normalize it to match AI output resolution
 - Add NEW outfits (becomes new pose letters: c, d, e...)
 - Add NEW expressions to existing outfits
+- REPLACE existing expressions that came out poorly (orange chips)
 - Automatically matches scale to existing character
 - Preserves all existing settings (voice, name, eye line, etc.)
 - Full-size backup images are preferred for best quality

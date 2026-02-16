@@ -1197,10 +1197,34 @@ When adding expressions to existing outfits:
         col = 0
 
         # For existing outfits, show face 0 as non-editable reference first
+        # Prefer backup (full-size) over character folder (may be scaled down)
         if outfit_name.startswith("existing_"):
             pose_letter = outfit_name.replace("existing_", "")
             face_0_path = None
-            if self.state.existing_character_folder:
+
+            # Priority 1: External backup (full-size, pre-scale)
+            backup_id = self.state.backup_id
+            if backup_id:
+                ext_backup_dir = get_backup_dir(backup_id) / pose_letter / "faces" / "face"
+                if ext_backup_dir.is_dir():
+                    for ext in [".png", ".webp"]:
+                        path = ext_backup_dir / f"0{ext}"
+                        if path.exists():
+                            face_0_path = path
+                            break
+
+            # Priority 2: Legacy in-folder backups
+            if not face_0_path and self.state.existing_character_folder:
+                legacy_dir = self.state.existing_character_folder / "_backups" / pose_letter / "faces" / "face"
+                if legacy_dir.is_dir():
+                    for ext in [".png", ".webp"]:
+                        path = legacy_dir / f"0{ext}"
+                        if path.exists():
+                            face_0_path = path
+                            break
+
+            # Priority 3: Character folder (may be scaled)
+            if not face_0_path and self.state.existing_character_folder:
                 for ext in [".png", ".webp"]:
                     path = self.state.existing_character_folder / pose_letter / "faces" / "face" / f"0{ext}"
                     if path.exists():

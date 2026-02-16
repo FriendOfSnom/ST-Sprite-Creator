@@ -742,7 +742,7 @@ def build_expression_prompt(
         "Make sure the head, arms, hair, hands, and clothes are all kept within the image."
     )
 
-def build_outfit_prompt(base_outfit_desc: str, gender_style: str, background_color: str = "black (#000000)") -> str:
+def build_outfit_prompt(base_outfit_desc: str, gender_style: str, background_color: str = "black (#000000)", hair_length: str = "") -> str:
     """
     Prompt to change clothing to base_outfit_desc on the given pose.
 
@@ -752,14 +752,19 @@ def build_outfit_prompt(base_outfit_desc: str, gender_style: str, background_col
         base_outfit_desc: Description of the outfit to generate.
         gender_style: 'f' or 'm' for gender-appropriate wording.
         background_color: Background color description (e.g., "magenta (#FF00FF)" or "black (#000000)").
+        hair_length: Hair length instruction (e.g., "short", "medium"). Empty string for no hair length control.
 
     Returns:
         Prompt string for outfit generation.
     """
     bg = background_color.split("(")[0].strip()  # Extract color name (magenta or black)
+    if hair_length:
+        hair_instruction = f"Give them a {hair_length.lower()} hairstyle that fits their new outfit. Keep the hair at {hair_length.lower()} length. Do not make it longer or shorter than that. "
+    else:
+        hair_instruction = "IMPORTANT: Keep the exact same hair length as the original. Do not make it any longer than it is, while adding some kind of styling that fits the new outfit. "
     prompt = (
         f"Edit the character's clothes to match this description: {base_outfit_desc}, but don't change the size, proportions, framing, or art style of the character. "
-        "IMPORTANT: Keep the exact same hair length as the original. Do not make it any longer than it is, while adding some kind of styling that fits the new outfit. "
+        f"{hair_instruction}"
         f"Give the character a {bg} background behind them. "
         "Make sure the head, arms, hair, hands, and clothes are all kept within the image."
     )
@@ -776,6 +781,7 @@ def build_standard_school_uniform_prompt(
     archetype_label: str,
     gender_style: str,
     background_color: str = "black (#000000)",
+    hair_length: str = "",
 ) -> str:
     """
     Build a standardized school-uniform prompt matching the rest of the outfit prompts.
@@ -790,6 +796,7 @@ def build_standard_school_uniform_prompt(
         archetype_label: Character archetype (e.g., "young woman").
         gender_style: 'f' or 'm'.
         background_color: Background color description (e.g., "magenta (#FF00FF)" or "black (#000000)").
+        hair_length: Hair length instruction (e.g., "short", "medium"). Empty string for no hair length control.
 
     Returns:
         Prompt string for standard school uniform generation.
@@ -812,11 +819,16 @@ def build_standard_school_uniform_prompt(
             "The shirt is neatly tucked into the trousers"
         )
 
+    if hair_length:
+        hair_instruction = f"Give them a {hair_length.lower()} hairstyle that fits their new outfit. Keep the hair at {hair_length.lower()} length. Do not make it longer or shorter than that. "
+    else:
+        hair_instruction = "IMPORTANT: Keep the exact same hair length as the original. Do not make it any longer than it is, while adding some kind of styling that fits the new outfit. "
+
     # Match the structure of build_outfit_prompt which works correctly
     return (
         f"Edit the character's clothes to match this school uniform: {uniform_desc}. "
         "Don't change the size, proportions, framing, or art style of the character. "
-        "IMPORTANT: Keep the exact same hair length as the original. Do not make it any longer than it is, while adding some kind of styling that fits the new outfit. "
+        f"{hair_instruction}"
         "Give the character a black background behind them. "
         "Make sure the head, arms, hair, hands, and clothes are all kept within the image."
     )

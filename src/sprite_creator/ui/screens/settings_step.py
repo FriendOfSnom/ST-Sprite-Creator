@@ -61,6 +61,17 @@ Affects the style of generated outfits:
 - Adult Woman/Man: Professional, mature clothing styles
 - Motherly/Fatherly: Older character styling
 
+HAIR LENGTH (Girl voice only)
+Controls how long the character's hair will be styled in each outfit:
+- Super Short: At the bottom of the ears
+- Short: A bob at or slightly above the shoulders
+- Medium: Past the shoulders to mid-back
+- Long: Down to the lower back
+- Super Long: Past the waist or longer
+
+This tells the AI what length to style the hair at for each new outfit.
+The base character keeps whatever hair the AI originally generates.
+
 Click Next when all fields are filled. For image mode, this will also
 normalize your image (sharpen resolution, add black background).
 
@@ -68,12 +79,16 @@ ADD-TO-EXISTING MODE
 When adding content to an existing character:
 - Name is pre-filled and cannot be changed (from character.yml)
 
-For characters CREATED by Sprite Creator (has archetype saved):
-- Voice and archetype are also locked (shown in gray)
+For characters CREATED by Sprite Creator (with standard voice):
+- Voice, archetype, and hair length are also locked (shown in gray)
 - All settings come from the original character.yml
 
+For characters with a non-standard voice (e.g. "child"):
+- You can pick Girl or Boy to set the voice for generation
+- Your choice is saved back to character.yml at finalization
+
 For characters NOT created by Sprite Creator:
-- Voice/archetype must be selected (for AI prompt generation)
+- Voice/archetype/hair length must be selected (for AI prompt generation)
 - Original voice setting is preserved at finalization"""
 
     def __init__(self, wizard, state: WizardState):
@@ -82,6 +97,9 @@ For characters NOT created by Sprite Creator:
         self._name_var: Optional[tk.StringVar] = None
         self._arch_var: Optional[tk.StringVar] = None
         self._arch_menu: Optional[tk.OptionMenu] = None
+        self._hair_var: Optional[tk.StringVar] = None
+        self._hair_frame: Optional[tk.Frame] = None
+        self._hair_menu: Optional[tk.OptionMenu] = None
         self._voice_indicator: Optional[tk.Label] = None
         self._name_entry: Optional[tk.Entry] = None
         self._status_label: Optional[tk.Label] = None
@@ -142,8 +160,11 @@ For characters NOT created by Sprite Creator:
         self._voice_var = tk.StringVar(value="")
 
         # Check if character was created by this app (has archetype in character.yml)
+        # Only lock settings if voice is valid (girl/boy) — otherwise let user pick
         is_sprite_creator_character = (
-            self.state.is_adding_to_existing and self.state.archetype_label
+            self.state.is_adding_to_existing
+            and self.state.archetype_label
+            and self.state.voice in ("girl", "boy")
         )
 
         if is_sprite_creator_character:
@@ -283,6 +304,52 @@ For characters NOT created by Sprite Creator:
             self._arch_menu.configure(width=20, bg="#1E1E1E", fg=TEXT_COLOR)
             self._arch_menu.pack(side="left")
 
+        # Hair length selection (girl archetypes only)
+        HAIR_LENGTHS = ["Super Short", "Short", "Medium", "Long", "Super Long"]
+
+        self._hair_frame = tk.Frame(form_card, bg=CARD_BG)
+        # Don't pack yet - visibility controlled by _update_hair_length_visibility
+
+        tk.Label(
+            self._hair_frame,
+            text="Hair Length:",
+            bg=CARD_BG,
+            fg=TEXT_COLOR,
+            font=BODY_FONT,
+            width=12,
+            anchor="e",
+        ).pack(side="left", padx=(0, 12))
+
+        self._hair_var = tk.StringVar(value="")
+
+        if is_sprite_creator_character and self.state.hair_length:
+            # Read-only hair length display for Sprite Creator characters that have it saved
+            self._hair_var.set(self.state.hair_length)
+            hair_label = tk.Label(
+                self._hair_frame,
+                textvariable=self._hair_var,
+                font=BODY_FONT,
+                width=20,
+                bg="#1E1E1E",
+                fg=TEXT_SECONDARY,
+                anchor="w",
+                padx=4,
+            )
+            hair_label.pack(side="left")
+            tk.Label(
+                self._hair_frame,
+                text="(from character.yml)",
+                bg=CARD_BG,
+                fg=TEXT_SECONDARY,
+                font=BODY_FONT,
+            ).pack(side="left", padx=(8, 0))
+            self._hair_menu = None
+        else:
+            # Interactive hair length menu
+            self._hair_menu = tk.OptionMenu(self._hair_frame, self._hair_var, *HAIR_LENGTHS)
+            self._hair_menu.configure(width=20, bg="#1E1E1E", fg=TEXT_COLOR)
+            self._hair_menu.pack(side="left")
+
         # Status label
         self._status_label = tk.Label(
             form_card,
@@ -293,6 +360,16 @@ For characters NOT created by Sprite Creator:
         )
         self._status_label.pack(pady=(16, 0))
 
+    def _update_hair_length_visibility(self) -> None:
+        """Show hair length dropdown for girl voice, hide for boy."""
+        voice = self._voice_var.get() if self._voice_var else ""
+        if voice == "girl":
+            # Pack before the status label
+            self._hair_frame.pack(fill="x", pady=(0, 16), before=self._status_label)
+        else:
+            self._hair_frame.pack_forget()
+            self._hair_var.set("")
+
     def _set_voice(self, voice: str) -> None:
         """Handle voice selection."""
         self._voice_var.set(voice)
@@ -301,6 +378,9 @@ For characters NOT created by Sprite Creator:
 
         # Update archetype menu
         self._update_archetype_menu()
+
+        # Update hair length visibility
+        self._update_hair_length_visibility()
 
         # Set random name if empty
         if not self._name_var.get().strip():
@@ -343,8 +423,11 @@ For characters NOT created by Sprite Creator:
     def on_enter(self) -> None:
         """Restore values from state if available."""
         # Check if character was created by this app (has archetype in character.yml)
+        # Only lock settings if voice is valid (girl/boy) — otherwise let user pick
         is_sprite_creator_character = (
-            self.state.is_adding_to_existing and self.state.archetype_label
+            self.state.is_adding_to_existing
+            and self.state.archetype_label
+            and self.state.voice in ("girl", "boy")
         )
 
         if self.state.voice:
@@ -365,6 +448,11 @@ For characters NOT created by Sprite Creator:
                     if label == self.state.archetype_label:
                         self.state.gender_style = gender
                         break
+
+        # Restore hair length
+        if self.state.hair_length:
+            self._hair_var.set(self.state.hair_length)
+        self._update_hair_length_visibility()
 
         # For add-to-existing mode, show helpful status
         if self.state.is_adding_to_existing:
@@ -399,12 +487,18 @@ For characters NOT created by Sprite Creator:
             messagebox.showerror("Missing Archetype", "Please select an archetype.")
             return False
 
+        # Check hair length for girl voice
+        if self._voice_var.get() == "girl" and not self._hair_var.get():
+            messagebox.showerror("Missing Hair Length", "Please select a hair length.")
+            return False
+
         # Save to state
         self.state.voice = self._voice_var.get()
         self.state.display_name = name_value
         self.state.archetype_label = self._arch_var.get()
+        self.state.hair_length = self._hair_var.get() if self._voice_var.get() == "girl" else ""
 
-        log_info(f"SETTINGS: Name={self.state.display_name}, Archetype={self.state.archetype_label}, Voice={self.state.voice}, Gender={self.state.gender_style}, Mode={self.state.source_mode}")
+        log_info(f"SETTINGS: Name={self.state.display_name}, Archetype={self.state.archetype_label}, Voice={self.state.voice}, Gender={self.state.gender_style}, Hair={self.state.hair_length}, Mode={self.state.source_mode}")
 
         # For image mode, run normalization before advancing
         # (Skip for add-to-existing mode - we use existing images)

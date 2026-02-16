@@ -115,7 +115,13 @@ Click Accept when ready to begin generation."""
         self._display_summary()
 
         # Set base_pose_path to the cropped image for downstream steps
-        if self.state.cropped_image_path and self.state.cropped_image_path.exists():
+        # Only set if not already assigned (outfit generation updates it to the
+        # character folder copy, so don't revert to the temp file on back-navigation)
+        if (
+            not self.state.base_pose_path
+            and self.state.cropped_image_path
+            and self.state.cropped_image_path.exists()
+        ):
             self.state.base_pose_path = self.state.cropped_image_path
 
     def on_exit(self) -> None:
@@ -176,6 +182,10 @@ Click Accept when ready to begin generation."""
         # Archetype
         if self.state.archetype_label:
             parts.append(self.state.archetype_label.title())
+
+        # Hair length (girl archetypes only)
+        if self.state.hair_length:
+            parts.append(f"{self.state.hair_length} Hair")
 
         # Outfits count
         outfit_count = len(self.state.selected_outfits) if self.state.selected_outfits else 0

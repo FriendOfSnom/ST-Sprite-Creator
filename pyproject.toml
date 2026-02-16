@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sprite-creator"
-version = "1.0.7"
+version = "1.0.8"
 description = "AI-powered sprite generation for visual novels using Google Gemini"
 readme = "README.md"
-license = {text = "MIT"}
+license = {text = "AGPL-3.0"}
 requires-python = ">=3.10"
 authors = [
     {name = "FriendOfSnom"}
@@ -19,7 +19,7 @@ classifiers = [
     "Environment :: MacOS X",
     "Intended Audience :: Developers",
     "Intended Audience :: End Users/Desktop",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: GNU Affero General Public License v3",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",

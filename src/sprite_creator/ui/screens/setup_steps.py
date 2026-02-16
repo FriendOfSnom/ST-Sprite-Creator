@@ -31,6 +31,7 @@ from ...config import (
     ACCENT_COLOR,
     ACCENT_HOVER,
     BORDER_COLOR,
+    DANGER_COLOR,
     ERROR_TEXT,
     WARNING_TEXT,
     OVERLAY_BG,
@@ -1812,6 +1813,8 @@ Click Next when your character looks right."""
         temp_path = temp_dir / f"cropped_{id(self)}.png"
         self._crop_original_img.save(temp_path, format="PNG")
         self.state.cropped_image_path = temp_path
+        # Reset base_pose_path so the review step picks up the new crop
+        self.state.base_pose_path = None
         # Invalidate post-crop normalization so it re-runs on next outfit generation
         self.state.base_pose_normalized_post_crop = False
 
@@ -2435,6 +2438,11 @@ Click Next when your character looks right."""
         temp_path = temp_dir / f"selected_base_{id(self)}.png"
         self._normalized_sprite_image.save(temp_path, format="PNG")
         self.state.cropped_image_path = temp_path
+        # Reset base_pose_path so the review step picks up the new selection
+        self.state.base_pose_path = None
+        # Mark as already normalized — sprite selector images go through Gemini
+        # normalization already, so skip the post-crop normalize in outfit generation.
+        self.state.base_pose_normalized_post_crop = True
 
         # Update button states
         self._update_next_button_state()
@@ -2506,10 +2514,16 @@ When adding to an existing character, an additional section appears:
 
 ADD EXPRESSIONS TO EXISTING OUTFITS
 (Only visible for Sprite Creator characters)
-- Shows all existing outfits (pose letters) with their current expressions
-- Check an outfit to enable adding expressions
-- Select which expressions to add (only shows missing ones)
-- Uses the outfit's face 0 as the base for generation
+- Shows all existing outfits (pose letters) with their expressions
+- Check an outfit to enable selecting expressions
+- Blue chips = missing expressions (new generation)
+- Orange chips = existing expressions (select to replace)
+- Expression 0 (Neutral) cannot be replaced — it comes from the outfit image
+- Quick actions ("Match Above", "Select All Missing") only select missing expressions
+
+If you select any existing expressions for replacement, an overwrite
+warning will appear. You must check the acknowledgment box before
+proceeding. This is separate from the content filter warning.
 
 You must select at least one option:
 - One new outfit to generate, OR
@@ -2575,6 +2589,13 @@ Click Next when you've made your selections."""
         self._content_warning_label: Optional[tk.Label] = None
         self._last_risky_set: set = set()
 
+        # Overwrite warning tracking
+        self._warnings_row: Optional[tk.Frame] = None
+        self._overwrite_warning_frame: Optional[tk.Frame] = None
+        self._overwrite_warning_var: Optional[tk.BooleanVar] = None
+        self._overwrite_warning_label: Optional[tk.Label] = None
+        self._last_overwrite_set: set = set()
+
     def build_ui(self, parent: tk.Frame) -> None:
         parent.configure(bg=BG_COLOR)
 
@@ -2587,13 +2608,16 @@ Click Next when you've made your selections."""
             font=PAGE_TITLE_FONT,
         ).pack(pady=(0, 16))
 
-        # --- Content Warning Banner (hidden by default) ---
+        # --- Warnings Row (holds content warning + overwrite warning side by side) ---
+        self._warnings_row = tk.Frame(parent, bg=BG_COLOR)
+        # Don't pack yet — shown/hidden by _update_content_warning / _update_overwrite_warning
+
+        # --- Content Warning Banner (left side) ---
         self._content_warning_var = tk.BooleanVar(value=False)
         self._content_warning_frame = tk.Frame(
-            parent, bg=CARD_BG, padx=12, pady=10,
+            self._warnings_row, bg=CARD_BG, padx=12, pady=10,
             highlightbackground=WARNING_TEXT, highlightthickness=2,
         )
-        # Don't pack yet — shown/hidden by _update_content_warning()
 
         warning_header = tk.Frame(self._content_warning_frame, bg=CARD_BG)
         warning_header.pack(fill="x")
@@ -2607,7 +2631,7 @@ Click Next when you've made your selections."""
             self._content_warning_frame,
             text="",
             bg=CARD_BG, fg=TEXT_COLOR, font=SMALL_FONT,
-            justify="left", anchor="w", wraplength=500,
+            justify="left", anchor="w", wraplength=400,
         )
         self._content_warning_label.pack(fill="x", pady=(6, 6))
 
@@ -2617,6 +2641,41 @@ Click Next when you've made your selections."""
             ack_frame,
             text="I understand these may not generate successfully",
             variable=self._content_warning_var,
+            bg=CARD_BG, fg=TEXT_COLOR, selectcolor="#1E1E1E",
+            activebackground=CARD_BG, activeforeground=TEXT_COLOR,
+            font=SMALL_FONT,
+        ).pack(side="left")
+
+        # --- Overwrite Warning Banner (right side) ---
+        self._overwrite_warning_var = tk.BooleanVar(value=False)
+        self._last_overwrite_set: set = set()
+        self._overwrite_warning_frame = tk.Frame(
+            self._warnings_row, bg=CARD_BG, padx=12, pady=10,
+            highlightbackground=DANGER_COLOR, highlightthickness=2,
+        )
+
+        overwrite_header = tk.Frame(self._overwrite_warning_frame, bg=CARD_BG)
+        overwrite_header.pack(fill="x")
+        tk.Label(
+            overwrite_header,
+            text="Expression Overwrite Warning",
+            bg=CARD_BG, fg=DANGER_COLOR, font=SECTION_FONT,
+        ).pack(side="left")
+
+        self._overwrite_warning_label = tk.Label(
+            self._overwrite_warning_frame,
+            text="",
+            bg=CARD_BG, fg=TEXT_COLOR, font=SMALL_FONT,
+            justify="left", anchor="w", wraplength=400,
+        )
+        self._overwrite_warning_label.pack(fill="x", pady=(6, 6))
+
+        overwrite_ack_frame = tk.Frame(self._overwrite_warning_frame, bg=CARD_BG)
+        overwrite_ack_frame.pack(fill="x")
+        tk.Checkbutton(
+            overwrite_ack_frame,
+            text="I understand these existing expressions will be replaced",
+            variable=self._overwrite_warning_var,
             bg=CARD_BG, fg=TEXT_COLOR, selectcolor="#1E1E1E",
             activebackground=CARD_BG, activeforeground=TEXT_COLOR,
             font=SMALL_FONT,
@@ -2910,6 +2969,22 @@ Click Next when you've made your selections."""
             self._existing_select_all_missing, width=16
         ).pack(side="left")
 
+        # Color legend for expression chips
+        legend_frame = tk.Frame(self._existing_outfits_section, bg=BG_COLOR)
+        legend_frame.pack(fill="x", pady=(0, 6))
+        tk.Label(
+            legend_frame, text="\u25CF", bg=BG_COLOR, fg=ACCENT_COLOR, font=SMALL_FONT,
+        ).pack(side="left")
+        tk.Label(
+            legend_frame, text="New expression", bg=BG_COLOR, fg=TEXT_SECONDARY, font=SMALL_FONT,
+        ).pack(side="left", padx=(2, 12))
+        tk.Label(
+            legend_frame, text="\u25CF", bg=BG_COLOR, fg=WARNING_TEXT, font=SMALL_FONT,
+        ).pack(side="left")
+        tk.Label(
+            legend_frame, text="Existing (will replace if selected)", bg=BG_COLOR, fg=TEXT_SECONDARY, font=SMALL_FONT,
+        ).pack(side="left", padx=(2, 0))
+
         # Scrollable container for existing poses
         scroll_container = tk.Frame(self._existing_outfits_section, bg=BG_COLOR)
         scroll_container.pack(fill="both", expand=True)
@@ -3126,6 +3201,19 @@ Click Next when you've made your selections."""
                 risky[f"expr_{key}"] = "Aroused (Expression 16) - may be refused by content filters"
         return risky
 
+    def _update_warnings_row(self) -> None:
+        """Show/hide the warnings row based on whether any warning is active."""
+        # Use state flags instead of winfo_ismapped() — children packed inside
+        # an unmapped parent report as unmapped, causing a chicken-and-egg issue.
+        has_content = bool(self._last_risky_set)
+        has_overwrite = bool(self._last_overwrite_set)
+
+        if has_content or has_overwrite:
+            if not self._warnings_row.winfo_ismapped():
+                self._warnings_row.pack(fill="x", pady=(0, 12), before=self._columns_frame)
+        else:
+            self._warnings_row.pack_forget()
+
     def _update_content_warning(self) -> None:
         """Show/hide the content warning banner based on current risky selections."""
         if not self._content_warning_frame:
@@ -3146,14 +3234,56 @@ Click Next when you've made your selections."""
                 self._content_warning_var.set(False)
                 self._last_risky_set = risky_set
 
-            # Show the warning frame (pack before columns)
+            # Show the warning frame inside the warnings row
             if not self._content_warning_frame.winfo_ismapped():
-                self._content_warning_frame.pack(fill="x", pady=(0, 12), before=self._columns_frame)
+                self._content_warning_frame.pack(side="left", fill="both", expand=True, padx=(0, 6))
         else:
             # Hide the warning frame
             self._content_warning_frame.pack_forget()
             self._last_risky_set = set()
             self._content_warning_var.set(False)
+
+        self._update_warnings_row()
+
+    def _update_overwrite_warning(self) -> None:
+        """Show/hide the overwrite warning banner based on existing expression selections."""
+        if not self._overwrite_warning_frame:
+            return
+
+        # Collect all selected existing expressions
+        replacements = []
+        for pose_letter, expr_vars in self._existing_expr_vars.items():
+            if self._existing_outfit_vars.get(pose_letter, tk.IntVar()).get() != 1:
+                continue
+            existing = self._existing_expressions_data.get(pose_letter, [])
+            for expr_num, var in expr_vars.items():
+                if var.get() == 1 and expr_num in existing:
+                    replacements.append((pose_letter, expr_num))
+
+        overwrite_set = set(replacements)
+
+        if replacements:
+            # Build description listing what will be replaced
+            lines = ["The following existing expressions will be overwritten:\n"]
+            for pose, expr in sorted(replacements):
+                lines.append(f"  \u2022 Pose {pose.upper()} - Expression {expr}")
+            self._overwrite_warning_label.configure(text="\n".join(lines))
+
+            # If overwrite set changed, reset acknowledgment
+            if overwrite_set != self._last_overwrite_set:
+                self._overwrite_warning_var.set(False)
+                self._last_overwrite_set = overwrite_set
+
+            # Show the warning frame inside the warnings row
+            if not self._overwrite_warning_frame.winfo_ismapped():
+                self._overwrite_warning_frame.pack(side="left", fill="both", expand=True, padx=(6, 0))
+        else:
+            # Hide the warning frame
+            self._overwrite_warning_frame.pack_forget()
+            self._last_overwrite_set = set()
+            self._overwrite_warning_var.set(False)
+
+        self._update_warnings_row()
 
     def _update_add_buttons(self) -> None:
         """Update add button states based on current counts."""
@@ -3472,7 +3602,11 @@ Click Next when you've made your selections."""
             self._update_add_buttons()
 
     def _existing_match_new_outfits(self) -> None:
-        """Auto-select the same expressions for existing outfits as chosen for new outfits."""
+        """Auto-select the same expressions for existing outfits as chosen for new outfits.
+
+        Only selects missing expressions — existing (on-disk) expressions are never
+        auto-selected since replacing them is a destructive action.
+        """
         # Get currently selected new-outfit expressions
         selected_new = set()
         for key, var in self._expr_vars.items():
@@ -3480,27 +3614,43 @@ Click Next when you've made your selections."""
                 selected_new.add(key)
 
         for pose_letter, expr_vars in self._existing_expr_vars.items():
+            existing = self._existing_expressions_data.get(pose_letter, [])
             # Enable the pose
             if pose_letter in self._existing_outfit_vars:
                 self._existing_outfit_vars[pose_letter].set(1)
-            # Select matching expressions
+            # Select matching expressions (skip existing on-disk ones)
             for expr_num, expr_var in expr_vars.items():
+                if expr_num in existing:
+                    continue  # Don't auto-select existing expressions
                 expr_var.set(1 if expr_num in selected_new else 0)
-            # Update chip appearances
+            # Update chip appearances (skip existing)
             if pose_letter in self._existing_expr_chips:
                 for expr_num, chip in self._existing_expr_chips[pose_letter].items():
+                    if expr_num in existing:
+                        continue
                     chip.selected = expr_num in selected_new
+        self._update_overwrite_warning()
 
     def _existing_select_all_missing(self) -> None:
-        """Select all missing expressions for all existing outfits."""
+        """Select all missing expressions for all existing outfits.
+
+        Only selects missing expressions — existing (on-disk) expressions are never
+        auto-selected since replacing them is a destructive action.
+        """
         for pose_letter, expr_vars in self._existing_expr_vars.items():
+            existing = self._existing_expressions_data.get(pose_letter, [])
             if pose_letter in self._existing_outfit_vars:
                 self._existing_outfit_vars[pose_letter].set(1)
             for expr_num, expr_var in expr_vars.items():
+                if expr_num in existing:
+                    continue  # Don't auto-select existing expressions
                 expr_var.set(1)
             if pose_letter in self._existing_expr_chips:
-                for chip in self._existing_expr_chips[pose_letter].values():
+                for expr_num, chip in self._existing_expr_chips[pose_letter].items():
+                    if expr_num in existing:
+                        continue
                     chip.selected = True
+        self._update_overwrite_warning()
 
     def _build_existing_outfits_ui(self) -> None:
         """Build UI for adding expressions to existing outfits with chip-based display."""
@@ -3595,7 +3745,7 @@ Click Next when you've made your selections."""
             missing_count = sum(1 for k, _ in EXPRESSIONS_SEQUENCE if k not in existing_exprs and k != "0")
             tk.Label(
                 header_frame,
-                text=f"{len(existing_exprs)} existing, {missing_count} available",
+                text=f"{len(existing_exprs) - (1 if '0' in existing_exprs else 0)} replaceable, {missing_count} missing",
                 bg=CARD_BG,
                 fg=TEXT_SECONDARY,
                 font=SMALL_FONT,
@@ -3614,10 +3764,28 @@ Click Next when you've made your selections."""
                 short = expr_short_names.get(expr_num, expr_num)
                 chip_text = f"{expr_num} - {short}"
 
-                if expr_num in existing_exprs:
-                    # Already exists - filled chip (non-interactive)
+                if expr_num == "0" and expr_num in existing_exprs:
+                    # Expression 0 (Neutral) is copied from the outfit image — never replaceable
                     chip = FilledChip(chips_frame, chip_text)
                     chip.grid(row=row_num, column=col, padx=2, pady=2, sticky="w")
+                elif expr_num in existing_exprs:
+                    # Already exists - warning-style chip (orange/red)
+                    expr_var = tk.IntVar(value=0)
+                    self._existing_expr_vars[pose_letter][expr_num] = expr_var
+
+                    def make_existing_toggle(v=expr_var):
+                        def on_toggle(selected):
+                            v.set(1 if selected else 0)
+                            self._update_overwrite_warning()
+                        return on_toggle
+
+                    chip = create_toggle_chip(
+                        chips_frame, chip_text, selected=False,
+                        on_toggle=make_existing_toggle(), style="warning",
+                        enabled=False,
+                    )
+                    chip.grid(row=row_num, column=col, padx=2, pady=2, sticky="w")
+                    self._existing_expr_chips[pose_letter][expr_num] = chip
                 else:
                     # Missing - toggleable chip, default to unselected
                     expr_var = tk.IntVar(value=0)
@@ -3633,6 +3801,7 @@ Click Next when you've made your selections."""
                         chip_text,
                         selected=False,
                         on_toggle=make_toggle(),
+                        enabled=False,
                     )
                     chip.grid(row=row_num, column=col, padx=2, pady=2, sticky="w")
                     self._existing_expr_chips[pose_letter][expr_num] = chip
@@ -3664,6 +3833,7 @@ Click Next when you've made your selections."""
                             chip_text,
                             selected=False,
                             on_toggle=make_custom_toggle(),
+                            enabled=False,
                         )
                         chip.grid(row=row_num, column=col, padx=2, pady=2, sticky="w")
                         self._existing_expr_chips[pose_letter][ckey] = chip
@@ -3673,10 +3843,24 @@ Click Next when you've made your selections."""
                             col = 0
                             row_num += 1
                     else:
-                        # Custom expression already exists on disk - show as filled chip
+                        # Custom expression already exists on disk - warning-style chip
                         chip_text = f"{ckey} - {cdesc[:12]}"
-                        chip = FilledChip(chips_frame, chip_text)
+                        expr_var = tk.IntVar(value=0)
+                        self._existing_expr_vars[pose_letter][ckey] = expr_var
+
+                        def make_existing_custom_toggle(v=expr_var):
+                            def on_toggle(selected):
+                                v.set(1 if selected else 0)
+                                self._update_overwrite_warning()
+                            return on_toggle
+
+                        chip = create_toggle_chip(
+                            chips_frame, chip_text, selected=False,
+                            on_toggle=make_existing_custom_toggle(), style="warning",
+                            enabled=False,
+                        )
                         chip.grid(row=row_num, column=col, padx=2, pady=2, sticky="w")
+                        self._existing_expr_chips[pose_letter][ckey] = chip
                         col += 1
                         if col >= 4:
                             col = 0
@@ -3688,22 +3872,36 @@ Click Next when you've made your selections."""
                             if e not in standard_keys and e not in current_custom_keys and e != "0"]
             for expr_num in sorted(extra_on_disk, key=lambda x: int(x) if x.isdigit() else 999):
                 chip_text = f"{expr_num} - Custom"
-                chip = FilledChip(chips_frame, chip_text)
+                expr_var = tk.IntVar(value=0)
+                self._existing_expr_vars[pose_letter][expr_num] = expr_var
+
+                def make_extra_toggle(v=expr_var):
+                    def on_toggle(selected):
+                        v.set(1 if selected else 0)
+                        self._update_overwrite_warning()
+                    return on_toggle
+
+                chip = create_toggle_chip(
+                    chips_frame, chip_text, selected=False,
+                    on_toggle=make_extra_toggle(), style="warning",
+                    enabled=False,
+                )
                 chip.grid(row=row_num, column=col, padx=2, pady=2, sticky="w")
+                self._existing_expr_chips[pose_letter][expr_num] = chip
                 col += 1
                 if col >= 4:
                     col = 0
                     row_num += 1
 
-            # Check if all expressions already exist
+            # Note if all standard expressions already exist
             if len(existing_exprs) >= len(EXPRESSIONS_SEQUENCE):
                 tk.Label(
                     chips_frame,
-                    text="All expressions exist for this pose",
+                    text="All standard expressions exist \u2014 select any to replace",
                     bg=CARD_BG,
-                    fg=TEXT_SECONDARY,
+                    fg=WARNING_TEXT,
                     font=SMALL_FONT,
-                ).grid(row=0, column=0, columnspan=4, sticky="w", pady=4)
+                ).grid(row=row_num + 1, column=0, columnspan=4, sticky="w", pady=4)
 
             # Update card highlight and chip enabled state based on toggle
             def update_pose_highlight(pl=pose_letter, pf=pose_frame, pt=pose_toggle):
@@ -3726,6 +3924,7 @@ Click Next when you've made your selections."""
         """Toggle an existing pose for expression extension."""
         var = self._existing_outfit_vars[pose_letter]
         var.set(0 if var.get() else 1)
+        self._update_overwrite_warning()
 
     def on_enter(self) -> None:
         """Prepare options step based on archetype."""
@@ -3755,6 +3954,9 @@ Click Next when you've made your selections."""
         else:
             self._existing_outfits_section.pack_forget()
 
+        # Update overwrite warning (fresh build = no selections = hidden)
+        self._update_overwrite_warning()
+
         # Bind mousewheel scrolling to all scrollable areas
         if self._outfit_canvas:
             self._bind_mousewheel_to_canvas(self._outfit_scroll_frame, self._outfit_canvas)
@@ -3771,6 +3973,15 @@ Click Next when you've made your selections."""
                 "Acknowledgment Required",
                 "Please check the content filter acknowledgment before continuing.\n\n"
                 "Some of your selections may be blocked by Gemini's safety filters."
+            )
+            return False
+
+        # Check overwrite warning acknowledgment
+        if self._last_overwrite_set and not self._overwrite_warning_var.get():
+            messagebox.showwarning(
+                "Acknowledgment Required",
+                "Please check the expression overwrite acknowledgment before continuing.\n\n"
+                "Some existing expressions will be replaced with newly generated ones."
             )
             return False
 

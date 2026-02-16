@@ -706,6 +706,7 @@ def run_add_to_existing_wizard(
     existing_eye_line: float,
     existing_name_color: str,
     existing_archetype: str = "",
+    existing_hair_length: str = "",
 ) -> Optional[WizardState]:
     """
     Run the add-to-existing wizard for adding content to an existing character.
@@ -756,11 +757,13 @@ def run_add_to_existing_wizard(
     wizard._state.existing_name_color = existing_name_color
     wizard._state.backup_id = char_data.get('backup_id')
 
-    # If character was created by this app (has archetype), pre-fill voice/archetype
+    # If character was created by this app (has archetype), pre-fill voice/archetype/hair
     # These will be shown as read-only in SettingsStep
     if existing_archetype:
         wizard._state.archetype_label = existing_archetype
         wizard._state.voice = existing_voice  # Pre-fill voice for AI prompts
+        if existing_hair_length:
+            wizard._state.hair_length = existing_hair_length
 
     # Create a TEMP working folder for new content - NOT the existing folder!
     # This prevents overwrites and allows proper merging at finalization.

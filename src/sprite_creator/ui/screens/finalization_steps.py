@@ -1928,6 +1928,7 @@ Click Finish to close the wizard."""
                 poses_yaml,
                 game=None,
                 archetype=self.state.archetype_label or None,
+                hair_length=self.state.hair_length or None,
                 sprite_creator_poses=final_pose_letters,
                 original_size=original_size,
                 backup_id=backup_id,
@@ -2208,6 +2209,10 @@ Click Finish to close the wizard."""
             data['poses'] = {}
         for letter in new_pose_letters:
             data['poses'][letter] = {'facing': 'right'}
+
+        # Update voice if the user selected one (handles non-standard voices like "child")
+        if self.state.voice in ("girl", "boy"):
+            data['voice'] = self.state.voice
 
         # Add archetype if not present (for characters not originally made by this app)
         if 'archetype' not in data and self.state.archetype_label:
