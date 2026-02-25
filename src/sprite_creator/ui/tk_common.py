@@ -1047,9 +1047,6 @@ def create_segmented_control(
     """Create a segmented control widget."""
     return SegmentedControl(parent, options, default, on_change)
 
-    # Wait for dialog to close (blocking like messagebox)
-    dialog.wait_window()
-
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # INLINE TIPS / WARNINGS
