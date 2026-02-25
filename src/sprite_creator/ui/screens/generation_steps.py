@@ -21,6 +21,7 @@ from ...config import (
     BODY_FONT,
     SMALL_FONT,
 )
+from ..tk_common import get_primary_screen
 from .base import WizardStep, WizardState
 
 
@@ -149,8 +150,9 @@ Click Accept when ready to begin generation."""
 
             # Larger display: 65% screen height, 40% width
             parent = self._preview_label.winfo_toplevel()
-            max_h = int(parent.winfo_screenheight() * 0.65)
-            max_w = int(parent.winfo_screenwidth() * 0.40)
+            sw, sh, *_ = get_primary_screen(parent)
+            max_h = int(sh * 0.65)
+            max_w = int(sw * 0.40)
 
             img.thumbnail((max_w, max_h), Image.LANCZOS)
 

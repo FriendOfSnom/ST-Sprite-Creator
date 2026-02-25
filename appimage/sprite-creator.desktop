@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=AI Sprite Creator
+Exec=entrypoint.sh
+Icon=sprite-creator
+Type=Application
+Categories=Graphics;
+Comment=AI-powered sprite generation for visual novels using Google Gemini

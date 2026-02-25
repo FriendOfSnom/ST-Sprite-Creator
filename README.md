@@ -32,10 +32,18 @@ New Google Cloud accounts get **$300 in free credits** - more than enough for hu
 
 ### Running the App
 
-**From executable (recommended):**
-Double-click `sprite_creator.exe`
+**Windows (recommended):**
+Download the `.zip` from [Releases](https://github.com/FriendOfSnom/Auto-Sprite-Tools/releases), extract, and double-click `AI Sprite Creator.exe`.
 
-**From source:**
+**Linux:**
+Download the `.AppImage` from [Releases](https://github.com/FriendOfSnom/Auto-Sprite-Tools/releases), then:
+```bash
+chmod +x AI-Sprite-Creator-v*.AppImage
+./AI-Sprite-Creator-v*.AppImage
+```
+No Python or dependencies needed — everything is bundled in the AppImage.
+
+**From source (any platform):**
 
 ```bash
 pip install -r requirements.txt
@@ -164,7 +172,8 @@ Use the **Clear Backups** button on the launcher to free disk space. Note that c
 
 - **Python 3.10+** (when running from source)
 - **Google Gemini API Key** (Google Cloud with credits)
-- **Windows 10/11** (primary platform; macOS/Linux may work from source)
+- **Windows 10/11** or **Linux** (x86_64) — pre-built downloads available
+- **macOS** — run from source
 
 ### Dependencies (installed via requirements.txt)
 

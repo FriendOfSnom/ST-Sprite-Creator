@@ -243,22 +243,40 @@ class LauncherWindow:
     def _build_ui(self):
         """Build the launcher UI."""
         # Scrollable container for small screens
-        self._scroll_canvas = tk.Canvas(self.root, bg=BG_COLOR, highlightthickness=0)
-        self._scroll_canvas.pack(side="left", fill="both", expand=True)
+        scroll_outer = tk.Frame(self.root, bg=BG_COLOR)
+        scroll_outer.pack(fill="both", expand=True)
 
-        scrollbar = tk.Scrollbar(self.root, orient="vertical", command=self._scroll_canvas.yview)
-        scrollbar.pack(side="right", fill="y")
-        self._scroll_canvas.configure(yscrollcommand=scrollbar.set)
+        self._scroll_canvas = tk.Canvas(scroll_outer, bg=BG_COLOR, highlightthickness=0)
+        self._scroll_canvas.pack(fill="both", expand=True)
+
+        self._v_scrollbar = tk.Scrollbar(
+            scroll_outer, orient="vertical",
+            command=self._scroll_canvas.yview, width=10
+        )
+        self._h_scrollbar = tk.Scrollbar(
+            scroll_outer, orient="horizontal",
+            command=self._scroll_canvas.xview, width=10
+        )
+        self._scroll_canvas.configure(
+            xscrollcommand=self._h_scrollbar.set,
+            yscrollcommand=self._v_scrollbar.set,
+        )
 
         main_frame = tk.Frame(self._scroll_canvas, bg=BG_COLOR, padx=40, pady=20)
-        self._scroll_canvas.create_window((0, 0), window=main_frame, anchor="nw")
+        self._canvas_window = self._scroll_canvas.create_window((0, 0), window=main_frame, anchor="nw")
 
         def _on_configure(event=None):
             self._scroll_canvas.configure(scrollregion=self._scroll_canvas.bbox("all"))
-            # Match canvas width so content stays centered
+            # Stretch content to fill canvas when canvas is larger (for centering)
+            # but don't shrink it below its natural size (allows horizontal scroll)
             canvas_w = self._scroll_canvas.winfo_width()
-            self._scroll_canvas.itemconfigure("all", width=canvas_w)
+            content_w = main_frame.winfo_reqwidth()
+            self._scroll_canvas.itemconfigure(self._canvas_window, width=max(canvas_w, content_w))
+            self._update_scrollbar()
+
         main_frame.bind("<Configure>", _on_configure)
+        self._scroll_canvas.bind("<Configure>", lambda e: _on_configure())
+        self._main_frame = main_frame
 
         # Mouse wheel scrolling
         def _on_mousewheel(event):
@@ -495,6 +513,24 @@ class LauncherWindow:
                     f"Failed to clear backups:\n{e}",
                     parent=self.root,
                 )
+
+    def _update_scrollbar(self) -> None:
+        """Show scrollbars only when content overflows."""
+        try:
+            canvas_w = self._scroll_canvas.winfo_width()
+            canvas_h = self._scroll_canvas.winfo_height()
+            content_w = self._main_frame.winfo_reqwidth()
+            content_h = self._main_frame.winfo_reqheight()
+        except tk.TclError:
+            return
+        if content_h > canvas_h + 2:
+            self._v_scrollbar.place(relx=1.0, rely=0, relheight=1.0, anchor="ne")
+        else:
+            self._v_scrollbar.place_forget()
+        if content_w > canvas_w + 2:
+            self._h_scrollbar.place(relx=0, rely=1.0, relwidth=1.0, anchor="sw")
+        else:
+            self._h_scrollbar.place_forget()
 
     def _on_close(self):
         """Handle window close."""

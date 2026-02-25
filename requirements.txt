@@ -3,5 +3,6 @@ beautifulsoup4
 pillow>=10.3
 pyyaml
 pandas
-rembg>=2.0.57
+rembg[cpu]>=2.0.57
 certifi  # SSL certificates for SDK download in frozen exe
+screeninfo  # Multi-monitor support for correct window centering

@@ -134,7 +134,7 @@ The starting point depends on the outfit's mode from the previous step:
 - Auto mode: Starts from the rembg-processed result (use to touch up remaining artifacts)
 - Manual mode: Starts from the original black-background image (use for full manual removal)
 
-For existing outfits in add-to-character mode, use the "Switch to Manual/Auto" button to toggle between modes.
+For existing outfits in add-to-character mode, expressions always use manual removal mode.
 
 WORKFLOW
 1. Use Prev/Next to view each outfit's expressions
@@ -785,7 +785,7 @@ When adding expressions to existing outfits:
             edge_cleanup_tolerance, edge_cleanup_passes = self.state.outfit_cleanup_settings[idx]
 
         # Get bg removal mode from outfit review
-        bg_removal_mode = self.state.outfit_bg_modes.get(idx, "rembg")
+        bg_removal_mode = self._get_bg_mode_for_outfit(outfit_name)
 
         # Generate expressions - returns (path_list, cleanup_data_list, generated_keys, failed_keys)
         expr_path_list, cleanup_data_list, generated_keys, failed_keys = generate_expressions_for_single_outfit_once(
@@ -940,9 +940,8 @@ When adding expressions to existing outfits:
         Only generates the specified expressions (not all).
         Does NOT clear existing files or overwrite existing expressions.
         """
-        from ...api.gemini_client import load_image_as_base64, strip_background_ai
+        from ...api.gemini_client import load_image_as_base64, call_gemini_image_edit
         from ...api.prompt_builders import build_expression_prompt
-        from ...api.gemini_client import call_gemini_image_edit
         from ...processing.image_utils import save_image_bytes_as_png
         from ...config import EXPRESSIONS_SEQUENCE
 
@@ -1047,13 +1046,11 @@ When adding expressions to existing outfits:
                 )
 
                 if original_bytes:
-                    # Apply rembg for transparent background
-                    rembg_bytes = strip_background_ai(original_bytes, skip_edge_cleanup=True)
-
-                    # Save to disk
-                    final_path = save_image_bytes_as_png(rembg_bytes, out_stem)
+                    # Existing outfits are always manual mode — save original
+                    # black-bg image for user to manually remove background
+                    final_path = save_image_bytes_as_png(original_bytes, out_stem)
                     expr_paths[expr_key] = final_path
-                    cleanup_dict[expr_key] = (original_bytes, rembg_bytes)
+                    cleanup_dict[expr_key] = (original_bytes, original_bytes)
                     log_info(f"Saved expression {expr_key} to {final_path}")
             except Exception as e:
                 log_error("Expression generation", f"Failed to generate expression {expr_key}: {e}")
@@ -1129,6 +1126,9 @@ When adding expressions to existing outfits:
         self._img_refs.clear()
         self._expr_card_frames.clear()
         self._expr_card_overlays.clear()
+
+        # Reset horizontal scroll to the start
+        self._canvas.xview_moveto(0)
 
         # Update progress indicator
         self._update_progress_indicator()
@@ -1368,16 +1368,6 @@ When adding expressions to existing outfits:
             width=10
         ).pack(side="left")
 
-        # For existing outfits in add-to-character mode, add toggle button
-        if outfit_name.startswith("existing_") and self.state.is_adding_to_existing:
-            current_mode = self._get_bg_mode_for_outfit(outfit_name)
-            toggle_label = "Switch to Manual" if current_mode == "rembg" else "Switch to Auto"
-            create_secondary_button(
-                btn_row, toggle_label,
-                lambda o=outfit_name, e=expr_key: self._toggle_existing_bg_mode(o, e),
-                width=13
-            ).pack(side="left", padx=(4, 0))
-
         return card
 
     def _build_failed_expression_card(self, outfit_name: str, expr_key: str, max_h: int) -> tk.Frame:
@@ -1506,9 +1496,10 @@ When adding expressions to existing outfits:
         Returns:
             "rembg" for auto removal, "manual" for manual removal.
         """
-        # For existing outfits, check by outfit_name
+        # For existing outfits (add-to-character), always use manual mode.
+        # There are no saved tolerance/depth settings, so auto (rembg) is useless.
         if outfit_name.startswith("existing_"):
-            return self.state.outfit_bg_modes.get(outfit_name, "rembg")
+            return "manual"
 
         # For regular outfits, use numeric index
         outfit_names = self._get_outfit_names()
@@ -1652,7 +1643,7 @@ When adding expressions to existing outfits:
             are populated. For regular outfits, original_bytes and rembg_bytes are None.
         """
         from ...processing import regenerate_single_expression
-        from ...api.gemini_client import load_image_as_base64, strip_background_ai, call_gemini_image_edit
+        from ...api.gemini_client import load_image_as_base64, call_gemini_image_edit
         from ...api.prompt_builders import build_expression_prompt
         from ...processing.image_utils import save_image_bytes_as_png
 
@@ -1706,11 +1697,11 @@ When adding expressions to existing outfits:
             )
 
             if original_bytes:
-                rembg_bytes = strip_background_ai(original_bytes, skip_edge_cleanup=True)
+                # Existing outfits are always manual mode — save original
+                # black-bg image for user to manually remove background
                 out_stem = faces_dir / expr_key
-                new_path = save_image_bytes_as_png(rembg_bytes, out_stem)
-                # Return tuple with cleanup data for existing outfits
-                return (new_path, original_bytes, rembg_bytes)
+                new_path = save_image_bytes_as_png(original_bytes, out_stem)
+                return (new_path, original_bytes, original_bytes)
             else:
                 raise ValueError(f"Failed to generate expression {expr_key}")
 
@@ -1740,7 +1731,7 @@ When adding expressions to existing outfits:
             edge_cleanup_tolerance, edge_cleanup_passes = self.state.outfit_cleanup_settings[idx]
 
         # Get bg removal mode from outfit review
-        bg_removal_mode = self.state.outfit_bg_modes.get(idx, "rembg")
+        bg_removal_mode = self._get_bg_mode_for_outfit(outfit_name)
 
         new_path = regenerate_single_expression(
             api_key=self.state.api_key,

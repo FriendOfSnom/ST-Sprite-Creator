@@ -37,6 +37,7 @@ from ..tk_common import (
     create_primary_button,
     create_secondary_button,
     show_error_dialog,
+    get_primary_screen,
 )
 from .base import WizardStep, WizardState
 from ...logging_utils import log_info, log_error
@@ -224,8 +225,7 @@ If you need to redo:
 
         # Get screen dimensions
         parent = self._canvas.winfo_toplevel()
-        sw = parent.winfo_screenwidth()
-        sh = parent.winfo_screenheight()
+        sw, sh, *_ = get_primary_screen(parent)
 
         # Compute display size (larger for better picking accuracy)
         self._disp_w, self._disp_h = compute_display_size(
@@ -728,8 +728,7 @@ Click Next when the scale looks right."""
 
         # Update canvas sizes based on screen (larger for better accuracy)
         parent = self._ref_canvas.winfo_toplevel()
-        sw = parent.winfo_screenwidth()
-        sh = parent.winfo_screenheight()
+        sw, sh, *_ = get_primary_screen(parent)
         self._canv_w = max(int((sw - 100) // 2.2), 350)
         self._canv_h = max(int(sh * 0.55), 350)
 
@@ -929,8 +928,7 @@ Click Next when the scale looks right."""
 
         # Update canvas sizes
         parent = self._ref_canvas.winfo_toplevel()
-        sw = parent.winfo_screenwidth()
-        sh = parent.winfo_screenheight()
+        sw, sh, *_ = get_primary_screen(parent)
         self._canv_w = max(int((sw - 100) // 2.2), 350)
         self._canv_h = max(int(sh * 0.55), 350)
 

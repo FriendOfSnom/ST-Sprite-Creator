@@ -834,7 +834,7 @@ def build_standard_school_uniform_prompt(
     )
 
 
-def build_prompt_for_idea(concept: str, archetype_label: str, gender_style: str, background_color: str = "black (#000000)") -> str:
+def build_prompt_for_idea(concept: str, archetype_label: str, gender_style: str, background_color: str = "black (#000000)", hair_length: str = "") -> str:
     """
     Build text prompt used when generating a new character from a concept.
 
@@ -845,6 +845,7 @@ def build_prompt_for_idea(concept: str, archetype_label: str, gender_style: str,
         archetype_label: Character archetype.
         gender_style: 'f' or 'm'.
         background_color: Background color description (e.g., "magenta (#FF00FF)" or "black (#000000)").
+        hair_length: Hair length (e.g., "short", "medium").
 
     Returns:
         Prompt string for new character generation from text.
@@ -858,6 +859,7 @@ def build_prompt_for_idea(concept: str, archetype_label: str, gender_style: str,
         "Match the art style and rendering quality of the input images so the new character has the same artist, vibrant colors, and overall styling. "
         "Have them facing mostly toward the viewer in a friendly, neutral pose, that would work as a base sprite. "
         "They should not be holding anything in their hands. "
+        f"Give them a {hair_length.lower()} hairstyle. Keep the hair at {hair_length.lower()} length. Do not make it longer or shorter than that. "
         f"Give the character a {bg} background behind them. "
         "Make sure the head, arms, hair, hands, and clothes are all kept within the image."
     )

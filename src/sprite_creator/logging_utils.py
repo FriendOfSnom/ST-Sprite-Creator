@@ -2,13 +2,14 @@
 Logging utilities for AI Sprite Creator.
 
 Provides file-based logging that:
-- Writes to logs/sprite_creator.log next to the .exe (or project root in dev)
+- Writes to logs/sprite_creator.log (location depends on how the app is run)
 - Wipes the log on each program restart
 - Captures uncaught exceptions
 - Logs key events (API calls, generation, errors)
 """
 
 import logging
+import os
 import sys
 import traceback
 from datetime import datetime
@@ -19,10 +20,18 @@ from .config import APP_NAME, APP_VERSION
 
 
 def _get_log_dir() -> Path:
-    """Get the log directory - next to .exe when frozen, or project root in dev."""
+    """Get the log directory.
+
+    - Frozen (PyInstaller): next to the executable
+    - AppImage: ~/.sprite_creator/logs/
+    - Development: project root /logs/
+    """
     if getattr(sys, 'frozen', False):
         # Frozen .exe - put logs next to the executable
         return Path(sys.executable).parent / "logs"
+    elif os.environ.get('APPIMAGE'):
+        # AppImage - put logs next to the .AppImage file (like Windows puts them next to .exe)
+        return Path(os.environ['APPIMAGE']).parent / "logs"
     else:
         # Development - use project root (parent of src/)
         return Path(__file__).resolve().parent.parent.parent / "logs"

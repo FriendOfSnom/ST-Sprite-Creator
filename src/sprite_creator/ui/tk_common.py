@@ -79,6 +79,29 @@ def get_window_size(size_class: str, screen_w: int, screen_h: int) -> Tuple[int,
     return int(screen_w * w_ratio), int(screen_h * h_ratio)
 
 
+def get_primary_screen(widget) -> Tuple[int, int, int, int]:
+    """
+    Return (width, height, x_offset, y_offset) for the primary monitor.
+
+    On multi-monitor setups, tkinter's winfo_screenwidth/height returns the
+    combined virtual desktop size, causing windows to be centered between
+    monitors. This function returns just the primary monitor's dimensions
+    and position offset for correct centering.
+
+    Falls back to winfo_screenwidth/height at offset (0, 0) if screeninfo
+    is unavailable.
+    """
+    try:
+        from screeninfo import get_monitors
+        monitors = get_monitors()
+        if monitors:
+            primary = next((m for m in monitors if m.is_primary), monitors[0])
+            return primary.width, primary.height, primary.x, primary.y
+    except Exception:
+        pass
+    return widget.winfo_screenwidth(), widget.winfo_screenheight(), 0, 0
+
+
 def apply_window_size(root: tk.Tk, size_class: str) -> None:
     """
     Apply a standard size class to a window and center it.
@@ -88,12 +111,11 @@ def apply_window_size(root: tk.Tk, size_class: str) -> None:
         size_class: One of "compact", "standard", "large", "fullscreen"
     """
     root.update_idletasks()
-    sw = root.winfo_screenwidth()
-    sh = root.winfo_screenheight()
+    sw, sh, ox, oy = get_primary_screen(root)
 
     w, h = get_window_size(size_class, sw, sh)
-    x = (sw - w) // 2
-    y = (sh - h) // 2
+    x = ox + (sw - w) // 2
+    y = oy + (sh - h) // 2
 
     root.geometry(f"{w}x{h}+{x}+{y}")
 
@@ -1148,13 +1170,12 @@ def center_and_clamp(root: tk.Tk) -> None:
     root.update_idletasks()
     req_w = root.winfo_reqwidth()
     req_h = root.winfo_reqheight()
-    sw = root.winfo_screenwidth()
-    sh = root.winfo_screenheight()
+    sw, sh, ox, oy = get_primary_screen(root)
 
     w = min(req_w + WINDOW_MARGIN, sw - 2 * WINDOW_MARGIN)
     h = min(req_h + WINDOW_MARGIN, sh - 2 * WINDOW_MARGIN)
-    x = max((sw - w) // 2, WINDOW_MARGIN)
-    y = WINDOW_MARGIN  # Pin near top instead of vertical centering
+    x = ox + max((sw - w) // 2, WINDOW_MARGIN)
+    y = oy + WINDOW_MARGIN  # Pin near top instead of vertical centering
 
     root.geometry(f"{w}x{h}+{x}+{y}")
 

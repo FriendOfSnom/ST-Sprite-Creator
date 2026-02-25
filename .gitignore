@@ -1,5 +1,6 @@
 # Virtual environment
 venv/
+.venv/
 
 # IDE and editor
 .claude/
@@ -34,6 +35,11 @@ __pycache__/
 # Sprite tester generated files
 src/sprite_creator/tester/_test_project/
 src/sprite_creator/tools/tester/_test_project/
+
+# Editable install metadata
+*.egg-info/
+**/*.egg-info/
+src/sprite_creator.egg-info/
 
 # PyInstaller build artifacts
 build/

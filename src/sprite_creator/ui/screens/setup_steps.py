@@ -54,6 +54,7 @@ from ..tk_common import (
     create_segmented_control,
     ToggleChip,
     FilledChip,
+    get_primary_screen,
 )
 from ..dialogs import load_name_pool, pick_random_name
 from .base import WizardStep, WizardState
@@ -932,6 +933,15 @@ Click Next when your character looks right."""
         )
         self._archetype_label.pack(anchor="w", pady=2)
 
+        self._hair_length_label = tk.Label(
+            self._settings_display_frame,
+            text="Hair Length: --",
+            bg=CARD_BG,
+            fg=TEXT_COLOR,
+            font=BODY_FONT,
+        )
+        self._hair_length_label.pack(anchor="w", pady=2)
+
         # Concept text (only shown for prompt mode)
         self._concept_frame = tk.Frame(self._left_col, bg=BG_COLOR)
 
@@ -1222,8 +1232,8 @@ Click Next when your character looks right."""
 
         self._sprite_preview_canvas = tk.Canvas(
             left_canvas_container,
-            width=220,
-            height=340,
+            width=340,
+            height=500,
             bg="black",
             highlightthickness=0,
         )
@@ -1256,8 +1266,8 @@ Click Next when your character looks right."""
 
         self._normalized_preview_canvas = tk.Canvas(
             self._normalized_preview_frame,
-            width=220,
-            height=340,
+            width=340,
+            height=500,
             bg="black",
             highlightthickness=0,
         )
@@ -1349,6 +1359,7 @@ Click Next when your character looks right."""
                 concept=self.state.concept_text,
                 archetype_label=self.state.archetype_label,
                 gender_style=self.state.gender_style,
+                hair_length=self.state.hair_length,
             )
 
             # Get reference images for this archetype (only if ST style toggle is ON)
@@ -1431,8 +1442,7 @@ Click Next when your character looks right."""
         # Get screen size
         self._crop_canvas.update_idletasks()
         parent = self._crop_canvas.winfo_toplevel()
-        sw = parent.winfo_screenwidth()
-        sh = parent.winfo_screenheight()
+        sw, sh, *_ = get_primary_screen(parent)
 
         # Compute display size (fit in right column)
         max_w = int(sw * 0.35)
@@ -1562,6 +1572,8 @@ Click Next when your character looks right."""
         self._voice_label.configure(text=f"Voice: {self.state.voice.capitalize() if self.state.voice else '--'}")
         self._name_label.configure(text=f"Name: {self.state.display_name or '--'}")
         self._archetype_label.configure(text=f"Archetype: {self.state.archetype_label or '--'}")
+        hair = self.state.hair_length
+        self._hair_length_label.configure(text=f"Hair Length: {hair.capitalize() if hair else '--'}")
 
         # Handle add-to-existing mode separately
         if self.state.is_adding_to_existing:
@@ -1942,8 +1954,8 @@ Click Next when your character looks right."""
         # Load and resize image for thumbnail
         try:
             img = Image.open(image_path).convert("RGBA")
-            # Calculate thumbnail size (max 80x100)
-            thumb_w, thumb_h = 80, 100
+            # Calculate thumbnail size (max 120x150)
+            thumb_w, thumb_h = 120, 150
             img.thumbnail((thumb_w, thumb_h), Image.Resampling.LANCZOS)
             tk_img = ImageTk.PhotoImage(img)
             self._sprite_tk_images.append(tk_img)
@@ -2242,9 +2254,9 @@ Click Next when your character looks right."""
         # Clear canvas
         self._sprite_preview_canvas.delete("all")
 
-        # Calculate display size (fit within 220x340)
+        # Calculate display size (fit within canvas)
         img = self._selected_sprite_image
-        canvas_w, canvas_h = 220, 340
+        canvas_w, canvas_h = 340, 500
 
         # Calculate scale to fit
         scale_w = canvas_w / img.width
@@ -2271,9 +2283,9 @@ Click Next when your character looks right."""
         # Clear canvas
         self._normalized_preview_canvas.delete("all")
 
-        # Calculate display size (fit within 220x340)
+        # Calculate display size (fit within canvas)
         img = self._normalized_sprite_image
-        canvas_w, canvas_h = 220, 340
+        canvas_w, canvas_h = 340, 500
 
         scale_w = canvas_w / img.width
         scale_h = canvas_h / img.height

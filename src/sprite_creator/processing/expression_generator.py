@@ -23,8 +23,10 @@ from ..api.exceptions import GeminiAPIError, GeminiSafetyError
 from ..api.gemini_client import (
     call_gemini_image_edit,
     call_gemini_text_or_refs,
+    cleanup_edge_halos,
     load_image_as_base64,
     strip_background_ai,
+    REMBG_EDGE_CLEANUP,
 )
 from ..api.prompt_builders import (
     build_expression_prompt,
@@ -88,9 +90,18 @@ def _generate_expression_with_safety_recovery(
                     # Manual mode: skip rembg, return original bytes for both
                     return (original_bytes, original_bytes)
                 else:
-                    # Rembg mode: apply rembg separately (skip edge cleanup for interactive review)
+                    # Rembg mode: apply rembg, then edge cleanup with user's settings
                     rembg_bytes = strip_background_ai(original_bytes, skip_edge_cleanup=True)
-                    return (original_bytes, rembg_bytes)
+                    if REMBG_EDGE_CLEANUP:
+                        cleaned_bytes = cleanup_edge_halos(
+                            original_bytes=original_bytes,
+                            result_bytes=rembg_bytes,
+                            tolerance=edge_cleanup_tolerance if edge_cleanup_tolerance is not None else 0,
+                            passes=edge_cleanup_passes if edge_cleanup_passes is not None else 0,
+                        )
+                    else:
+                        cleaned_bytes = rembg_bytes
+                    return (original_bytes, cleaned_bytes)
             else:
                 if bg_removal_mode == "manual":
                     # Manual mode: skip background removal entirely
@@ -599,6 +610,7 @@ def generate_initial_character_from_prompt(
     output_root: Optional[Path] = None,
     out_stem: Optional[Path] = None,
     gender_style: Optional[str] = None,
+    hair_length: str = "",
 ) -> Path:
     """
     Use Gemini + reference sprites to generate a base character image
@@ -634,7 +646,7 @@ def generate_initial_character_from_prompt(
         )
 
     # Use black background for clean AI removal (consistent with outfits)
-    full_prompt = build_prompt_for_idea(concept, archetype_label, gender_style, background_color="solid black (#000000)")
+    full_prompt = build_prompt_for_idea(concept, archetype_label, gender_style, background_color="solid black (#000000)", hair_length=hair_length)
     print("[Gemini] Generating new character from text prompt...")
     img_bytes = call_gemini_text_or_refs(api_key, full_prompt, refs)
 

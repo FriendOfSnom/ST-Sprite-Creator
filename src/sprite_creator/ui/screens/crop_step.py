@@ -21,7 +21,7 @@ from ...config import (
     BODY_FONT,
     SMALL_FONT,
 )
-from ..tk_common import create_secondary_button
+from ..tk_common import create_secondary_button, get_primary_screen
 from .base import WizardStep, WizardState
 
 
@@ -151,8 +151,7 @@ You can go back if you need to change your source image."""
         # Get screen size from canvas
         self._canvas.update_idletasks()
         parent = self._canvas.winfo_toplevel()
-        sw = parent.winfo_screenwidth()
-        sh = parent.winfo_screenheight()
+        sw, sh, *_ = get_primary_screen(parent)
 
         # Compute display size
         self._disp_w, self._disp_h = compute_display_size(

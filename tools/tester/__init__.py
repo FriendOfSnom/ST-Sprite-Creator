@@ -29,8 +29,8 @@ from sprite_creator.logging_utils import log_info, log_error, log_warning, log_d
 
 def _get_writable_base() -> Path:
     """Get a writable base directory for project root operations."""
-    if getattr(sys, 'frozen', False):
-        # Frozen - use user's home directory
+    if getattr(sys, 'frozen', False) or os.environ.get('APPIMAGE'):
+        # Frozen or AppImage - use user's home directory (filesystem is read-only)
         return Path.home() / ".sprite_creator"
     else:
         # Development - use project root (tools/tester/__init__.py -> tools/tester -> tools -> repo root)
@@ -63,6 +63,9 @@ def _get_test_project_dir() -> Path:
     if getattr(sys, 'frozen', False):
         # Frozen - use temp directory
         return Path(tempfile.gettempdir()) / "sprite_creator_test"
+    elif os.environ.get('APPIMAGE'):
+        # AppImage - filesystem is read-only, use writable home directory
+        return Path.home() / ".sprite_creator" / "_test_project"
     else:
         # Development - use the existing location
         return Path(__file__).parent / "_test_project"
@@ -806,7 +809,7 @@ def launch_sprite_tester(char_dir: Path) -> bool:
                     f"Failed to download Ren'Py SDK.\n\n"
                     f"Please check your internet connection and try again.\n\n"
                     f"Check the log file for details:\n"
-                    f"(logs/sprite_creator.log next to exe)\n\n"
+                    f"(logs/sprite_creator.log next to the application)\n\n"
                     f"You can also manually download the SDK from:\n"
                     f"https://www.renpy.org/latest.html\n\n"
                     f"And set the RENPY_SDK_PATH environment variable to point to it."

@@ -22,6 +22,7 @@ from .tk_common import (
     WINDOW_MARGIN,
     center_and_clamp,
     wraplength_for,
+    get_primary_screen,
 )
 
 # Path to game backgrounds for preview
@@ -178,7 +179,7 @@ def review_images_for_step(
     root.configure(bg=BG_COLOR)
     root.title("Review Step")
 
-    sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
+    sw, sh, *_ = get_primary_screen(root)
     wrap_len = wraplength_for(int(sw * 0.9))
 
     # Current bytes for each image (from cleanup_data or loaded from disk for bg preview)
@@ -616,7 +617,7 @@ def review_initial_base_pose(
     root.configure(bg=BG_COLOR)
     root.title("Review Normalized Base Pose")
 
-    sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
+    sw, sh, *_ = get_primary_screen(root)
     wrap_len = wraplength_for(int(sw * 0.9))
 
     instructions = (
@@ -771,7 +772,7 @@ def click_to_remove_background(image_path: Path, threshold: int = 30) -> bool:
     root.configure(bg=BG_COLOR)
     root.title("Click to Remove Background")
 
-    sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
+    sw, sh, *_ = get_primary_screen(root)
 
     # Calculate display size — large but leave room for slider + buttons + chrome
     # Overhead: title bar ~32, slider ~70, buttons ~45, padding ~35, taskbar ~48 ≈ 230px
@@ -1053,7 +1054,7 @@ def review_initial_base_pose_dual(
     root.configure(bg=BG_COLOR)
     root.title("Review Normalized Base Pose Options")
 
-    sw, sh = root.winfo_screenwidth(), root.winfo_screenheight()
+    sw, sh, *_ = get_primary_screen(root)
     wrap_len = wraplength_for(int(sw * 0.9))
 
     # Title/Instructions
