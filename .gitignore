@@ -15,8 +15,11 @@ student-transfer/
 # Legacy/archived code
 Old_Files/
 
-# Standalone tools (not part of main package)
-tools/
+# Dev/scratch tools (not part of the app)
+dev_tools/
+
+# Tester generated project (runtime artifact)
+tools/tester/_test_project/
 
 # Python cache
 __pycache__/

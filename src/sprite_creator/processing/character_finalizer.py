@@ -25,7 +25,7 @@ def generate_expression_sheets_for_root(root_folder: Path) -> None:
     try:
         # Import and call the expression sheets main function directly
         # This works in both development and frozen (PyInstaller) mode
-        from ..tools.expression_sheets import main as run_expression_sheets
+        from tools.expression_sheets import main as run_expression_sheets
 
         # Temporarily set sys.argv for the expression sheets script
         original_argv = sys.argv

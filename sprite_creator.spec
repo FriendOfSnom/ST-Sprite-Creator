@@ -33,14 +33,14 @@ block_cipher = None
 # Analysis - find all imports
 a = Analysis(
     [str(SRC_DIR / 'sprite_creator' / 'run.py')],
-    pathex=[str(SRC_DIR)],
+    pathex=[str(SRC_DIR), str(SPEC_DIR)],
     binaries=[],
     datas=[
         # Data files
         (str(PACKAGE_DIR / 'data' / 'names.csv'), 'data'),
         (str(PACKAGE_DIR / 'data' / 'reference_sprites'), 'data/reference_sprites'),
         # Tester templates only (not the _test_project - it's generated at runtime)
-        (str(PACKAGE_DIR / 'tools' / 'tester' / 'templates'), 'tools/tester/templates'),
+        (str(SPEC_DIR / 'tools' / 'tester' / 'templates'), 'tools/tester/templates'),
     ] + ([(CERTIFI_PATH, 'certifi')] if CERTIFI_PATH else []),
     hiddenimports=[
         # Core dependencies

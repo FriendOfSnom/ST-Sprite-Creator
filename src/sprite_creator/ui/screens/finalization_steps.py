@@ -1710,7 +1710,7 @@ Click Finish to close the wizard."""
             return
 
         try:
-            from ...tools.tester import launch_sprite_tester
+            from tools.tester import launch_sprite_tester
             launch_sprite_tester(self.state.character_folder)
         except Exception as e:
             show_error_dialog(self.parent, "Error", f"Failed to launch sprite tester:\n{e}")

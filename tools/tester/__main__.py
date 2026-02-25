@@ -1,4 +1,4 @@
-"""Allow running the tester as: python -m sprite_creator.tester <character_folder>"""
+"""Allow running the tester as: python -m tools.tester <character_folder>"""
 
 import sys
 from pathlib import Path
@@ -6,7 +6,7 @@ from . import launch_sprite_tester
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print("Usage: python -m sprite_creator.tester <character_folder>")
+        print("Usage: python -m tools.tester <character_folder>")
         sys.exit(1)
 
     char_path = Path(sys.argv[1])

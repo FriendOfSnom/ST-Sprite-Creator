@@ -16,6 +16,14 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox
 
+# Add project root to sys.path so 'tools/' is importable
+if getattr(sys, 'frozen', False):
+    _root = Path(sys._MEIPASS)
+else:
+    _root = Path(__file__).resolve().parent.parent.parent  # src/sprite_creator/__main__.py -> repo root
+if str(_root) not in sys.path:
+    sys.path.insert(0, str(_root))
+
 # Force UTF-8 stdout/stderr on Windows so print() doesn't crash on non-ASCII
 # characters (e.g. \u202f narrow no-break space from macOS filenames or
 # unicode in Gemini API responses).
@@ -147,8 +155,8 @@ def run_sprite_creator():
 
 def run_expression_sheets():
     """Run the expression sheet generator for existing characters."""
-    from .tools.expression_sheets import main as run_sheet_generator
-    from .tools.expression_sheets import get_all_pose_paths
+    from tools.expression_sheets import main as run_sheet_generator
+    from tools.expression_sheets import get_all_pose_paths
 
     print("\n[INFO] Starting Expression Sheet Generator...")
 
@@ -235,7 +243,7 @@ def run_sprite_tester():
     # Run the tester
     try:
         log_info(f"Running sprite tester on: {folder_path}")
-        from .tools.tester import launch_sprite_tester
+        from tools.tester import launch_sprite_tester
         launch_sprite_tester(folder_path)
         log_info("Sprite tester finished")
         print("\n[INFO] Sprite tester finished.")

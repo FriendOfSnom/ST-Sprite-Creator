@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sprite-creator"
-version = "1.0.8"
+version = "1.1.0"
 description = "AI-powered sprite generation for visual novels using Google Gemini"
 readme = "README.md"
 license = {text = "AGPL-3.0"}

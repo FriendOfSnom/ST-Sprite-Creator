@@ -22,18 +22,9 @@ import yaml
 from PIL import Image as PILImage
 
 from .sdk_utils import SDK_VERSION, SDK_FOLDER_NAME, download_and_setup_sdk
-from ...config import get_resource_path
-from ...logging_utils import log_info, log_error, log_warning, log_debug
+from sprite_creator.config import get_resource_path
+from sprite_creator.logging_utils import log_info, log_error, log_warning, log_debug
 
-
-def _get_base_path() -> Path:
-    """Get the base path for frozen or development mode."""
-    if getattr(sys, 'frozen', False):
-        # Frozen - PyInstaller extracts to _MEIPASS
-        return Path(sys._MEIPASS)
-    else:
-        # Development - parent of tools/tester
-        return Path(__file__).parent.parent.parent
 
 
 def _get_writable_base() -> Path:
@@ -42,15 +33,15 @@ def _get_writable_base() -> Path:
         # Frozen - use user's home directory
         return Path.home() / ".sprite_creator"
     else:
-        # Development - use project root
-        return Path(__file__).parent.parent.parent.parent.parent
+        # Development - use project root (tools/tester/__init__.py -> tools/tester -> tools -> repo root)
+        return Path(__file__).parent.parent.parent
 
 
 # Paths relative to this module (frozen-app compatible)
-MODULE_DIR = get_resource_path("tools/tester")  # tools/tester/
+MODULE_DIR = Path(__file__).resolve().parent  # tools/tester/
 
 # Template files (bundled with tester for standalone operation)
-TEMPLATES_DIR = get_resource_path("tools/tester/templates")
+TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 
 # Writable paths (for SDK and test project)
 WRITABLE_BASE = _get_writable_base()

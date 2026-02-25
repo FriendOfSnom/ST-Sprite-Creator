@@ -17,7 +17,7 @@ from urllib.request import urlretrieve, urlopen
 from urllib.error import URLError
 import urllib.request
 
-from ...logging_utils import log_info, log_error, log_warning, log_debug
+from sprite_creator.logging_utils import log_info, log_error, log_warning, log_debug
 
 # Ren'Py SDK configuration
 SDK_VERSION = "8.5.0"
