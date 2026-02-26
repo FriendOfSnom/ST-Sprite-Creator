@@ -18,6 +18,17 @@ if sys.stdout is None:
 if sys.stderr is None:
     sys.stderr = open(os.devnull, "w")
 
+# Force UTF-8 encoding on stdout/stderr as early as possible.
+# On non-English Windows (e.g. Japanese cp932), the default encoding can't
+# handle characters like \u202f that appear in Gemini API responses,
+# causing UnicodeEncodeError deep in the generation pipeline.
+# errors="replace" means unencodable chars become '?' instead of crashing.
+if sys.platform == "win32":
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # Add project root to sys.path so 'tools/' is importable
 # In frozen mode, tools are bundled at the _internal root level
 if getattr(sys, 'frozen', False):
