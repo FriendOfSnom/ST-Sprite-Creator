@@ -24,6 +24,8 @@ from .gemini_client import (
 
 from .background_removal_legacy import strip_background_legacy
 
+from .uploader import upload_character_zip
+
 from .prompt_builders import (
     build_expression_prompt,
     build_outfit_prompt,
@@ -59,4 +61,6 @@ __all__ = [
     "build_outfit_prompts_with_config",
     "build_simple_outfit_description",
     "generate_outfit_description",
+    # Upload
+    "upload_character_zip",
 ]

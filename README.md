@@ -1,6 +1,6 @@
-# AI Sprite Creator
+# ST Sprite Creator
 
-AI-powered character sprite generator for visual novels, using Google Gemini. Create complete characters with multiple outfits, expressions, and automatic background removal in a guided wizard.
+AI-powered character sprite generator for Student Transfer, using Google Gemini. Create complete characters with multiple outfits, expressions, and automatic background removal in a guided wizard.
 
 ---
 
@@ -33,13 +33,13 @@ New Google Cloud accounts get **$300 in free credits** - more than enough for hu
 ### Running the App
 
 **Windows (recommended):**
-Download the `.zip` from [Releases](https://github.com/FriendOfSnom/Auto-Sprite-Tools/releases), extract, and double-click `AI Sprite Creator.exe`.
+Download the `.zip` from [Releases](https://github.com/FriendOfSnom/ST-Sprite-Creator/releases), extract, and double-click `ST Sprite Creator.exe`.
 
 **Linux:**
-Download the `.AppImage` from [Releases](https://github.com/FriendOfSnom/Auto-Sprite-Tools/releases), then:
+Download the `.AppImage` from [Releases](https://github.com/FriendOfSnom/ST-Sprite-Creator/releases), then:
 ```bash
-chmod +x AI-Sprite-Creator-v*.AppImage
-./AI-Sprite-Creator-v*.AppImage
+chmod +x ST-Sprite-Creator-v*.AppImage
+./ST-Sprite-Creator-v*.AppImage
 ```
 No Python or dependencies needed — everything is bundled in the AppImage.
 
@@ -83,6 +83,10 @@ Add new outfits or expressions to an existing character folder:
 
 Create expression reference sheet images from existing character folders. Useful for visual reference or sharing character designs.
 
+### Sprite Database
+
+Browse and download community-created characters from the shared sprite database. Upload your own characters directly from the finalize screen after creation.
+
 ### Sprite Tester
 
 Preview character sprites in a simulated Ren'Py environment. Test outfit switching, expression changes, and the character loading system.
@@ -109,7 +113,7 @@ character_name/
   expression_sheets/        Generated reference sheets
 ```
 
-Characters are compatible with Student Transfer's character system and any Ren'Py project that uses the same folder structure.
+Characters are compatible with Student Transfer's character system.
 
 ---
 
@@ -191,4 +195,4 @@ This project is licensed under the [GNU Affero General Public License v3.0](LICE
 
 ---
 
-_AI-powered character sprite generation for visual novels_
+_AI-powered character sprite generation for Student Transfer_

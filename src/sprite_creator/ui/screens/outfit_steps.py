@@ -1367,9 +1367,24 @@ When satisfied with all outfits, click Next to proceed to expression generation.
             messagebox.showwarning("Generation in Progress", "Please wait for generation to complete.")
             return
 
-        # Save current bytes to disk
+        from ...api.gemini_client import cleanup_edge_halos
+
+        # For rembg-mode outfits, re-apply current slider values before saving.
+        # This ensures disk bytes match the cleanup settings that expressions will use,
+        # even if the user changed sliders without clicking Apply.
         for idx, path in enumerate(self.state.outfit_paths):
             if idx < len(self._current_bytes):
+                mode = self.state.outfit_bg_modes.get(idx, "rembg")
+                if (mode == "rembg"
+                        and idx < len(self.state.outfit_cleanup_data)
+                        and idx < len(self._tolerance_vars)
+                        and idx < len(self._depth_vars)):
+                    original_bytes, rembg_bytes = self.state.outfit_cleanup_data[idx]
+                    tol = self._tolerance_vars[idx].get()
+                    depth = self._depth_vars[idx].get()
+                    self._current_bytes[idx] = cleanup_edge_halos(
+                        original_bytes, rembg_bytes, tolerance=tol, passes=depth
+                    )
                 path.write_bytes(self._current_bytes[idx])
 
         # Save cleanup settings

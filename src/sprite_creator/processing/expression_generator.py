@@ -34,7 +34,7 @@ from ..api.prompt_builders import (
 )
 from ..ui.review_windows import review_images_for_step, click_to_remove_background
 from .image_utils import (
-    save_img_webp_or_png,
+    save_img_as_png,
     save_image_bytes_as_png,
     get_reference_images_for_archetype,
 )
@@ -176,11 +176,11 @@ def generate_expressions_for_single_outfit_once(
 
     Layout (pose 'a', outfit 'Base'):
         a/outfits/Base.png
-        a/faces/face/0.webp ... N.webp
+        a/faces/face/0.png ... N.png
     For non-base outfits (e.g. 'Formal'):
         a/faces/Formal/0.webp ... N.webp
 
-    0.webp is always the neutral outfit image itself.
+    0.png is always the neutral outfit image itself.
     AI background removal is automatically applied.
 
     Args:
@@ -235,7 +235,7 @@ def generate_expressions_for_single_outfit_once(
     # Save neutral expression (0) as the outfit itself
     neutral_stem = out_dir / "0"
     outfit_img = Image.open(outfit_path).convert("RGBA")
-    neutral_path = save_img_webp_or_png(outfit_img, neutral_stem)
+    neutral_path = save_img_as_png(outfit_img, neutral_stem)
     generated_paths.append(neutral_path)
     generated_keys.append(expressions_sequence[0][0])  # Neutral key (usually "0")
     print(f"  [Expr] Using outfit as neutral '0' -> {neutral_path}")
@@ -332,7 +332,7 @@ def regenerate_single_expression(
     if expr_key == "0":
         outfit_img = Image.open(outfit_path).convert("RGBA")
         neutral_stem = out_dir / "0"
-        neutral_path = save_img_webp_or_png(outfit_img, neutral_stem)
+        neutral_path = save_img_as_png(outfit_img, neutral_stem)
         print(f"  [Expr] Regenerated neutral expression 0 -> {neutral_path}")
         return neutral_path
 

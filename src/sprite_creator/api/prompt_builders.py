@@ -232,10 +232,9 @@ GARMENT_TYPES = {
 
 # Color roles with weights for weighted random selection
 COLOR_ROLES = [
-    ("primary", 40),    # Main/dominant color - 40%
+    ("primary", 60),    # Main/dominant color - 60%
     ("secondary", 30),  # Supporting color - 30%
-    ("detail", 20),     # Accent color - 20%
-    ("pattern", 10),    # Color in a pattern - 10%
+    ("detail", 10),     # Accent color - 10%
 ]
 
 # Colors keyed by (archetype, outfit_type) for maximum relevance
@@ -385,201 +384,201 @@ ATHLETIC_COLORS = {
     ],
 }
 
-# Occasions by (archetype, outfit_type) - provides context for outfit generation
-# Values can be strings or lists (lists are randomly chosen from for variety)
-OCCASIONS = {
-    # FORMAL - 10 occasions per archetype
-    ("young woman", "formal"): [
-        "going to prom",
-        "attending a homecoming dance",
-        "going to a winter formal",
-        "attending a sorority formal",
-        "going to a graduation dinner",
-        "attending a sweet sixteen party",
-        "attending a theater premiere",
-        "attending a sorority philanthropy event",
-        "visiting an upscale restaurant",
-        "going to a debutante ball",
-    ],
-    ("adult woman", "formal"): [
-        "attending a cocktail party",
-        "going to a wedding as a guest",
-        "attending a gallery opening",
-        "going to a charity gala",
-        "attending an awards ceremony",
-        "going to a black-tie dinner",
-        "going to a film premiere",
-        "attending a book launch party",
-        "at a rooftop cocktail event",
-        "going to a museum gala",
-    ],
-    ("motherly woman", "formal"): [
-        "attending a gala",
-        "going to a special occasion dinner",
-        "attending a charity fundraiser",
-        "going to an anniversary celebration",
-        "attending an awards banquet",
-        "going to the opera or symphony",
-        "attending a retirement celebration",
-        "going to a country club dinner",
-        "at a scholarship banquet",
-        "attending a wine and cheese reception",
-    ],
-    ("young man", "formal"): [
-        "going to prom",
-        "attending a homecoming dance",
-        "going to a winter formal",
-        "attending a graduation dinner",
-        "going to a fraternity formal",
-        "attending a family wedding",
-        "attending a scholarship dinner",
-        "going to a charity concert",
-        "at a debutante ball",
-        "going to a fancy restaurant",
-    ],
-    ("adult man", "formal"): [
-        "attending a wedding as a guest",
-        "going to a business formal event",
-        "attending a cocktail party",
-        "going to a charity gala",
-        "attending an awards dinner",
-        "going to a formal date night",
-        "going to a networking gala",
-        "attending a client dinner",
-        "at a museum opening",
-        "going to a charity auction",
-    ],
-    ("fatherly man", "formal"): [
-        "attending a formal dinner",
-        "going to an awards ceremony",
-        "attending a charity gala",
-        "going to a business banquet",
-        "attending an anniversary dinner",
-        "going to the theater or opera",
-        "attending a retirement party",
-        "going to a country club event",
-        "at a professional conference dinner",
-        "attending a lodge ceremony",
-    ],
-
-    # CASUAL - 12 occasions per archetype
-    ("young woman", "casual"): [
-        "going to class",
-        "hanging out with friends",
-        "grabbing boba",
-        "going to the mall",
-        "attending a movie night",
-        "going on a casual date",
-        "studying at a coffee shop",
-        "going to weekend brunch",
-        "at a rooftop hangout",
-        "going to a flea market",
-        "at a bowling night",
-        "visiting an arcade",
-    ],
-    ("adult woman", "casual"): [
-        "at the farmers market",
-        "meeting for coffee at a cafe",
-        "doing some casual shopping",
-        "a relaxed weekend afternoon",
-        "working from home",
-        "meeting a friend for lunch",
-        "a casual day off",
-        "hanging out on the weekend",
-        "at a book signing",
-        "going to a craft fair",
-        "visiting a winery",
-        "at a trivia night",
-    ],
-    ("motherly woman", "casual"): [
-        "running errands",
-        "picking up the kids",
-        "at a school pickup",
-        "going to weekend activities",
-        "having coffee with neighbors",
-        "going to a casual lunch",
-        "doing weekend shopping",
-        "at a backyard barbecue",
-        "at a craft night",
-        "going to a bake sale",
-        "visiting a nursery",
-        "at a potluck dinner",
-    ],
-    ("young man", "casual"): [
-        "hanging out with friends",
-        "going to a casual party",
-        "catching a movie",
-        "playing video games with buddies",
-        "grabbing food with friends",
-        "going to a weekend hangout",
-        "attending a house party",
-        "chilling on campus",
-        "at a pickup basketball game",
-        "going to a concert",
-        "at a gaming tournament",
-        "visiting an escape room",
-    ],
-    ("adult man", "casual"): [
-        "going to weekend brunch",
-        "on a casual date",
-        "watching the game at a sports bar",
-        "attending a barbecue",
-        "hanging out with buddies",
-        "picking up groceries",
-        "going to a casual dinner",
-        "relaxing on the weekend",
-        "at a brewery tour",
-        "going to a car show",
-        "visiting a golf range",
-        "at a poker night",
-    ],
-    ("fatherly man", "casual"): [
-        "hosting a weekend barbecue",
-        "running errands",
-        "at a casual family outing",
-        "watching the game with friends",
-        "attending a neighborhood gathering",
-        "going to a casual lunch",
-        "doing weekend yard work",
-        "taking the family out",
-        "at a fishing trip",
-        "going to a home improvement store",
-        "visiting a classic car show",
-        "at a block party",
-    ],
-
-    # ATHLETIC
-    ("young woman", "athletic"): "going to yoga class or working out at the gym",
-    ("adult woman", "athletic"): "going for a morning run or attending a fitness class",
-    ("motherly woman", "athletic"): "going for a jog or doing yoga",
-    ("young man", "athletic"): "playing basketball or working out at the gym",
-    ("adult man", "athletic"): "going for a run or hitting the gym",
-    ("fatherly man", "athletic"): "going for a morning jog or playing golf",
-
-    # SWIMSUIT
-    ("young woman", "swimsuit"): "at the beach with friends or a pool party",
-    ("adult woman", "swimsuit"): "relaxing at a resort or on a beach vacation",
-    ("motherly woman", "swimsuit"): "at a family beach day or the neighborhood pool",
-    ("young man", "swimsuit"): "at the beach with friends or a pool party",
-    ("adult man", "swimsuit"): "at a beach resort or a pool club",
-    ("fatherly man", "swimsuit"): "at a family pool day or the beach with kids",
-
-    # UNDERWEAR
-    ("young woman", "underwear"): "lounging at home or getting ready for the day",
-    ("adult woman", "underwear"): "getting ready for a date night or relaxing at home",
-    ("motherly woman", "underwear"): "for everyday wear around the house",
-    ("young man", "underwear"): "lounging at home or getting ready for the day",
-    ("adult man", "underwear"): "for everyday basics or getting ready in the morning",
-    ("fatherly man", "underwear"): "for everyday wear around the house",
-
-    # UNIFORM
-    ("young woman", "uniform"): "Japanese school uniform",
-    ("adult woman", "uniform"): "working at an office or in a medical setting",
-    ("motherly woman", "uniform"): "working at an office or in a medical setting",
-    ("young man", "uniform"): "Japanese school uniform",
-    ("adult man", "uniform"): "working at an office or in a service industry",
-    ("fatherly man", "uniform"): "in a managerial role or professional setting",
-}
+# Occasions - COMMENTED OUT for testing (outfit_type in prompt provides enough context)
+# To restore: uncomment this dict and revert the prompt in generate_outfit_description()
+# OCCASIONS = {
+#     # FORMAL - 10 occasions per archetype
+#     ("young woman", "formal"): [
+#         "going to prom",
+#         "attending a homecoming dance",
+#         "going to a winter formal",
+#         "attending a sorority formal",
+#         "going to a graduation dinner",
+#         "attending a sweet sixteen party",
+#         "attending a theater premiere",
+#         "attending a sorority philanthropy event",
+#         "visiting an upscale restaurant",
+#         "going to a debutante ball",
+#     ],
+#     ("adult woman", "formal"): [
+#         "attending a cocktail party",
+#         "going to a wedding as a guest",
+#         "attending a gallery opening",
+#         "going to a charity gala",
+#         "attending an awards ceremony",
+#         "going to a black-tie dinner",
+#         "going to a film premiere",
+#         "attending a book launch party",
+#         "at a rooftop cocktail event",
+#         "going to a museum gala",
+#     ],
+#     ("motherly woman", "formal"): [
+#         "attending a gala",
+#         "going to a special occasion dinner",
+#         "attending a charity fundraiser",
+#         "going to an anniversary celebration",
+#         "attending an awards banquet",
+#         "going to the opera or symphony",
+#         "attending a retirement celebration",
+#         "going to a country club dinner",
+#         "at a scholarship banquet",
+#         "attending a wine and cheese reception",
+#     ],
+#     ("young man", "formal"): [
+#         "going to prom",
+#         "attending a homecoming dance",
+#         "going to a winter formal",
+#         "attending a graduation dinner",
+#         "going to a fraternity formal",
+#         "attending a family wedding",
+#         "attending a scholarship dinner",
+#         "going to a charity concert",
+#         "at a debutante ball",
+#         "going to a fancy restaurant",
+#     ],
+#     ("adult man", "formal"): [
+#         "attending a wedding as a guest",
+#         "going to a business formal event",
+#         "attending a cocktail party",
+#         "going to a charity gala",
+#         "attending an awards dinner",
+#         "going to a formal date night",
+#         "going to a networking gala",
+#         "attending a client dinner",
+#         "at a museum opening",
+#         "going to a charity auction",
+#     ],
+#     ("fatherly man", "formal"): [
+#         "attending a formal dinner",
+#         "going to an awards ceremony",
+#         "attending a charity gala",
+#         "going to a business banquet",
+#         "attending an anniversary dinner",
+#         "going to the theater or opera",
+#         "attending a retirement party",
+#         "going to a country club event",
+#         "at a professional conference dinner",
+#         "attending a lodge ceremony",
+#     ],
+#
+#     # CASUAL - 12 occasions per archetype
+#     ("young woman", "casual"): [
+#         "going to class",
+#         "hanging out with friends",
+#         "grabbing boba",
+#         "going to the mall",
+#         "attending a movie night",
+#         "going on a casual date",
+#         "studying at a coffee shop",
+#         "going to weekend brunch",
+#         "at a rooftop hangout",
+#         "going to a flea market",
+#         "at a bowling night",
+#         "visiting an arcade",
+#     ],
+#     ("adult woman", "casual"): [
+#         "at the farmers market",
+#         "meeting for coffee at a cafe",
+#         "doing some casual shopping",
+#         "a relaxed weekend afternoon",
+#         "working from home",
+#         "meeting a friend for lunch",
+#         "a casual day off",
+#         "hanging out on the weekend",
+#         "at a book signing",
+#         "going to a craft fair",
+#         "visiting a winery",
+#         "at a trivia night",
+#     ],
+#     ("motherly woman", "casual"): [
+#         "running errands",
+#         "picking up the kids",
+#         "at a school pickup",
+#         "going to weekend activities",
+#         "having coffee with neighbors",
+#         "going to a casual lunch",
+#         "doing weekend shopping",
+#         "at a backyard barbecue",
+#         "at a craft night",
+#         "going to a bake sale",
+#         "visiting a nursery",
+#         "at a potluck dinner",
+#     ],
+#     ("young man", "casual"): [
+#         "hanging out with friends",
+#         "going to a casual party",
+#         "catching a movie",
+#         "playing video games with buddies",
+#         "grabbing food with friends",
+#         "going to a weekend hangout",
+#         "attending a house party",
+#         "chilling on campus",
+#         "at a pickup basketball game",
+#         "going to a concert",
+#         "at a gaming tournament",
+#         "visiting an escape room",
+#     ],
+#     ("adult man", "casual"): [
+#         "going to weekend brunch",
+#         "on a casual date",
+#         "watching the game at a sports bar",
+#         "attending a barbecue",
+#         "hanging out with buddies",
+#         "picking up groceries",
+#         "going to a casual dinner",
+#         "relaxing on the weekend",
+#         "at a brewery tour",
+#         "going to a car show",
+#         "visiting a golf range",
+#         "at a poker night",
+#     ],
+#     ("fatherly man", "casual"): [
+#         "hosting a weekend barbecue",
+#         "running errands",
+#         "at a casual family outing",
+#         "watching the game with friends",
+#         "attending a neighborhood gathering",
+#         "going to a casual lunch",
+#         "doing weekend yard work",
+#         "taking the family out",
+#         "at a fishing trip",
+#         "going to a home improvement store",
+#         "visiting a classic car show",
+#         "at a block party",
+#     ],
+#
+#     # ATHLETIC
+#     ("young woman", "athletic"): "going to yoga class or working out at the gym",
+#     ("adult woman", "athletic"): "going for a morning run or attending a fitness class",
+#     ("motherly woman", "athletic"): "going for a jog or doing yoga",
+#     ("young man", "athletic"): "playing basketball or working out at the gym",
+#     ("adult man", "athletic"): "going for a run or hitting the gym",
+#     ("fatherly man", "athletic"): "going for a morning jog or playing golf",
+#
+#     # SWIMSUIT
+#     ("young woman", "swimsuit"): "at the beach with friends or a pool party",
+#     ("adult woman", "swimsuit"): "relaxing at a resort or on a beach vacation",
+#     ("motherly woman", "swimsuit"): "at a family beach day or the neighborhood pool",
+#     ("young man", "swimsuit"): "at the beach with friends or a pool party",
+#     ("adult man", "swimsuit"): "at a beach resort or a pool club",
+#     ("fatherly man", "swimsuit"): "at a family pool day or the beach with kids",
+#
+#     # UNDERWEAR
+#     ("young woman", "underwear"): "lounging at home or getting ready for the day",
+#     ("adult woman", "underwear"): "getting ready for a date night or relaxing at home",
+#     ("motherly woman", "underwear"): "for everyday wear around the house",
+#     ("young man", "underwear"): "lounging at home or getting ready for the day",
+#     ("adult man", "underwear"): "for everyday basics or getting ready in the morning",
+#     ("fatherly man", "underwear"): "for everyday wear around the house",
+#
+#     # UNIFORM
+#     ("young woman", "uniform"): "Japanese school uniform",
+#     ("adult woman", "uniform"): "working at an office or in a medical setting",
+#     ("motherly woman", "uniform"): "working at an office or in a medical setting",
+#     ("young man", "uniform"): "Japanese school uniform",
+#     ("adult man", "uniform"): "working at an office or in a service industry",
+#     ("fatherly man", "uniform"): "in a managerial role or professional setting",
+# }
 
 
 def _select_weighted_color_role() -> str:
@@ -643,9 +642,17 @@ def generate_outfit_description(
     age = AGE_RANGES.get(archetype_label, "20-35")
     gender_word = "woman" if archetype_label.endswith("woman") else "man"
 
-    # Get occasion (support both string and list values)
-    occasion_data = OCCASIONS.get((archetype_label, base_type), f"a {base_type} occasion")
-    occasion = random.choice(occasion_data) if isinstance(occasion_data, list) else occasion_data
+    # Occasions removed — outfit_type provides enough category context
+    # To restore: uncomment OCCASIONS dict and use the old prompt below
+    # OLD PROMPT:
+    # occasion_data = OCCASIONS.get((archetype_label, base_type), f"a {base_type} occasion")
+    # occasion = random.choice(occasion_data) if isinstance(occasion_data, list) else occasion_data
+    # prompt = (
+    #     f"Describe a new realistic outfit for a {gender_word} aged {age} {occasion}, "
+    #     f"inspired by {garment_type} with a {vibe_word} feel, in one brief sentence. "
+    #     f"Keep it realistic while including {color} as a {color_role} color. "
+    #     "Do not give a preamble before the outfit and do not describe what is being worn on the feet."
+    # )
 
     # Get vibe word (plain adjective, no article)
     vibe_word = random.choice(VIBE_WORDS.get((archetype_label, base_type), ["stylish"]))
@@ -662,9 +669,9 @@ def generate_outfit_description(
     color = _get_color_for_outfit(archetype_label, base_type)
     color_role = _select_weighted_color_role()
 
-    # Build the new prompt
+    # Build prompt (no occasions — outfit_type provides category context)
     prompt = (
-        f"Describe a new realistic outfit for a {gender_word} aged {age} {occasion}, "
+        f"Describe a new realistic {base_type} outfit for a {gender_word} aged {age}, "
         f"inspired by {garment_type} with a {vibe_word} feel, in one brief sentence. "
         f"Keep it realistic while including {color} as a {color_role} color. "
         "Do not give a preamble before the outfit and do not describe what is being worn on the feet."
@@ -855,7 +862,6 @@ def build_prompt_for_idea(concept: str, archetype_label: str, gender_style: str,
     return (
         f"Create concept sprite art for an original {archetype_phrase}, for a Japanese-style visual novel. "
         f"The character idea is: {concept} "
-        "IMPORTANT: The character must appear to be 18 years old or older. If the concept describes a younger character, depict them as a young adult (18+) instead. "
         "Match the art style and rendering quality of the input images so the new character has the same artist, vibrant colors, and overall styling. "
         "Have them facing mostly toward the viewer in a friendly, neutral pose, that would work as a base sprite. "
         "They should not be holding anything in their hands. "
@@ -875,7 +881,6 @@ def build_normalize_image_prompt() -> str:
         Prompt string for image normalization.
     """
     return (
-        "IMPORTANT: If the character appears to be under 18 years old, edit their appearance to look like a young adult (18+) while preserving their overall design and style. "
         "Sharpen the image to at least 720p resolution if it is lower than that and "
         "correct any artifacts of blurriness. Don't change the size, proportions, "
         "framing, or art style of the character. Give the character a black (#000000) "
@@ -886,11 +891,10 @@ def build_normalize_image_prompt() -> str:
 
 def build_normalize_existing_character_prompt() -> str:
     """
-    Prompt to normalize an existing character image (no age-up).
+    Prompt to normalize an existing character image.
 
     Used in add-to-character mode where the character is already established.
-    Same as build_normalize_image_prompt() but without the age verification,
-    since we're working with an existing character.
+    Same as build_normalize_image_prompt().
 
     Returns:
         Prompt string for existing character normalization.
@@ -919,8 +923,6 @@ def build_character_modification_prompt(user_instructions: str) -> str:
     """
     return (
         f"Modify this character based on the following instructions: {user_instructions} "
-        "IMPORTANT: If the modification makes a character appear younger than 18, then ignore "
-        "that modification instruction and keep them looking at least 18 years old. "
         "Maintain the same art style, proportions, and overall character design. Apply "
         "the requested changes while keeping the character recognizable. Give the "
         "character a black (#000000) background behind them. Make sure the head, arms, "
@@ -950,7 +952,6 @@ def build_fusion_prompt(archetype_label: str, gender_style: str) -> str:
         "- Face shape from one, eye shape from the other "
         "- Hair could blend both colors or take style from one and color from the other "
         f"- Body proportions should balance out while still looking like a completely new {archetype_phrase} "
-        "IMPORTANT: The character must appear to be 18 years old or older. "
         "Match the art style of the input images so the new character has the same artist, vibrant colors, and overall styling. "
         "Have the new character facing mostly toward the viewer in a friendly, neutral pose. "
         "Give the character a black (#000000) background behind them. "

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# build_appimage.sh — Build an AppImage for AI Sprite Creator
+# build_appimage.sh — Build an AppImage for ST Sprite Creator
 #
 # Usage: bash build_appimage.sh
 #
 # Requirements: bash, wget/curl, file (usually pre-installed on Linux)
-# Output:       dist/AI-Sprite-Creator-v<VERSION>-x86_64.AppImage
+# Output:       dist/ST-Sprite-Creator-v<VERSION>-x86_64.AppImage
 set -euo pipefail
 
 # ── Configuration ──────────────────────────────────────────────────────────────
@@ -21,12 +21,12 @@ text = pathlib.Path('src/sprite_creator/config.py').read_text()
 m = re.search(r'APP_VERSION\s*=\s*\"([^\"]+)\"', text)
 print(m.group(1))
 ")"
-echo "Building AI Sprite Creator v${APP_VERSION} AppImage"
+echo "Building ST Sprite Creator v${APP_VERSION} AppImage"
 
 BUILD_DIR="$SCRIPT_DIR/build/appimage"
 APPDIR="$BUILD_DIR/squashfs-root"
 DIST_DIR="$SCRIPT_DIR/dist"
-OUTPUT_NAME="AI-Sprite-Creator-v${APP_VERSION}-${ARCH}.AppImage"
+OUTPUT_NAME="ST-Sprite-Creator-v${APP_VERSION}-${ARCH}.AppImage"
 
 # appimagetool URL
 APPIMAGETOOL_URL="https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${ARCH}.AppImage"
@@ -112,7 +112,7 @@ echo "Copied tools/ to site-packages (excluding runtime artifacts)."
 print_header "Step 7: Creating entrypoint"
 cat > "$APPDIR/entrypoint.sh" << 'ENTRY'
 #!/bin/bash
-# AI Sprite Creator AppImage entrypoint
+# ST Sprite Creator AppImage entrypoint
 APPDIR="$(dirname "$(readlink -f "$0")")"
 PYTHON_VERSION="3.12"
 PYTHON_BIN="$APPDIR/opt/python${PYTHON_VERSION}/bin/python${PYTHON_VERSION}"

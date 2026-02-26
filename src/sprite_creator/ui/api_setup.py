@@ -1,5 +1,5 @@
 """
-API Key Setup Screen for AI Sprite Creator.
+API Key Setup Screen for ST Sprite Creator.
 
 Provides a GUI dialog for entering and validating Gemini API keys,
 replacing the CLI-based interactive setup.

@@ -2,7 +2,7 @@
 setlocal EnableExtensions
 
 echo =================================
-echo  AI Sprite Creator
+echo  ST Sprite Creator
 echo  Windows Startup Script
 echo =================================
 
@@ -38,7 +38,7 @@ if errorlevel 1 goto err_pip_install
 echo Dependencies are up to date.
 
 rem --- run the application
-echo Launching AI Sprite Creator...
+echo Launching ST Sprite Creator...
 cd src
 python -m sprite_creator
 set "RC=%ERRORLEVEL%"

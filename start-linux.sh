@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# start-linux.sh — Linux launcher for AI Sprite Creator
+# start-linux.sh — Linux launcher for ST Sprite Creator
 set -euo pipefail
 
 print_header() { echo; echo "================================="; echo "  $1"; echo "================================="; echo; }
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
-print_header "AI Sprite Creator — Linux Launcher"
+print_header "ST Sprite Creator — Linux Launcher"
 echo "Working directory: $SCRIPT_DIR"
 
 # --- Check for Python 3
@@ -55,7 +55,7 @@ pip install -e . --quiet
 echo "Dependencies up to date."
 
 # --- Launch
-print_header "Launching AI Sprite Creator"
+print_header "Launching ST Sprite Creator"
 python -m sprite_creator
 
 echo; echo "Done."

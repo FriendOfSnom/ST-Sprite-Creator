@@ -1,5 +1,5 @@
 """
-Welcome/README Screen for AI Sprite Creator.
+Welcome/README Screen for ST Sprite Creator.
 
 Shows a welcome screen on first launch with app overview and instructions.
 Can also be opened from the main launcher via "View README" button.
@@ -30,9 +30,9 @@ from .disclaimer import load_config, save_config
 
 
 # README content displayed in the welcome window
-WELCOME_TEXT = """AI Sprite Creator
+WELCOME_TEXT = """ST Sprite Creator
 
-AI-powered character sprite generator for visual novels, using Google Gemini.
+AI-powered character sprite generator for Student Transfer, using Google Gemini.
 Create complete characters with multiple outfits and expressions in minutes.
 
 
@@ -146,7 +146,7 @@ class WelcomeWindow:
         else:
             self.root = tk.Tk()
 
-        self.root.title("Welcome - AI Sprite Creator")
+        self.root.title("Welcome - ST Sprite Creator")
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
         apply_dark_theme(self.root)
@@ -162,7 +162,7 @@ class WelcomeWindow:
         # Title
         tk.Label(
             main_frame,
-            text="Welcome to AI Sprite Creator",
+            text="Welcome to ST Sprite Creator",
             bg=BG_COLOR,
             fg=TEXT_COLOR,
             font=TITLE_FONT,

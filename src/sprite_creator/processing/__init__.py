@@ -7,6 +7,7 @@ and character finalization.
 
 from .image_utils import (
     save_img_webp_or_png,
+    save_img_as_png,
     save_image_bytes_as_png,
     get_unique_folder_name,
     pick_representative_outfit,
@@ -36,6 +37,7 @@ from .character_finalizer import (
 __all__ = [
     # Image utilities
     "save_img_webp_or_png",
+    "save_img_as_png",
     "save_image_bytes_as_png",
     "get_unique_folder_name",
     "pick_representative_outfit",

@@ -37,6 +37,25 @@ def save_img_webp_or_png(img: Image.Image, dest_stem: Path) -> Path:
         return out_path
 
 
+def save_img_as_png(img: Image.Image, dest_stem: Path) -> Path:
+    """
+    Save a PIL Image as PNG.
+
+    Args:
+        img: PIL Image to save.
+        dest_stem: Destination path without extension.
+
+    Returns:
+        Path to saved PNG file.
+    """
+    dest_stem = Path(dest_stem)
+    dest_stem.parent.mkdir(parents=True, exist_ok=True)
+    safe_img = img.convert("RGBA")
+    out_path = dest_stem.with_suffix(".png")
+    safe_img.save(out_path, format="PNG", compress_level=0, optimize=False)
+    return out_path
+
+
 def save_image_bytes_as_png(image_bytes: bytes, dest_stem: Path) -> Path:
     """
     Save raw image bytes as PNG to dest_stem.png.

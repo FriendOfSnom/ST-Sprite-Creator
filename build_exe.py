@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Build script for AI Sprite Creator standalone executable.
+Build script for ST Sprite Creator standalone executable.
 
 This script:
 1. Ensures rembg models are pre-downloaded (so they're bundled in the exe)
@@ -14,7 +14,7 @@ Requirements:
     pip install pyinstaller
 
 Output:
-    dist/AI Sprite Creator/AI Sprite Creator.exe
+    dist/ST Sprite Creator/ST Sprite Creator.exe
 """
 
 import os
@@ -116,7 +116,7 @@ def run_pyinstaller():
 
 def report_output():
     """Report the build output location and size."""
-    output_dir = Path("dist") / "AI Sprite Creator"
+    output_dir = Path("dist") / "ST Sprite Creator"
 
     if not output_dir.exists():
         print("\n[ERROR] Output directory not found!")
@@ -127,7 +127,7 @@ def report_output():
     print("=" * 60)
 
     # Find the exe
-    exe_name = "AI Sprite Creator.exe"
+    exe_name = "ST Sprite Creator.exe"
     exe_path = output_dir / exe_name
 
     if exe_path.exists():
@@ -145,14 +145,14 @@ def report_output():
     print("\n" + "-" * 60)
     print("DISTRIBUTION:")
     print(f"  1. Zip the '{output_dir}' folder")
-    print("  2. Users extract and run 'AI Sprite Creator.exe'")
+    print("  2. Users extract and run 'ST Sprite Creator.exe'")
     print("-" * 60)
 
 
 def main():
     """Main build process."""
     print("=" * 60)
-    print("AI Sprite Creator - Build Script")
+    print("ST Sprite Creator - Build Script")
     print("=" * 60)
 
     # Step 1: Check PyInstaller

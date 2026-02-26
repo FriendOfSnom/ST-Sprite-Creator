@@ -8,13 +8,13 @@ All global paths, constants, and static tables for the Gemini sprite pipeline.
 import sys
 import uuid
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # APPLICATION INFO
 # ═══════════════════════════════════════════════════════════════════════════════
-APP_NAME = "AI Sprite Creator"
-APP_VERSION = "1.1.0"
+APP_NAME = "ST Sprite Creator"
+APP_VERSION = "1.1.1"
 
 
 def get_resource_path(relative_path: str = "") -> Path:
@@ -126,6 +126,45 @@ def delete_saved_outfit(index: int) -> None:
         config["saved_outfits"] = outfits
         with open(CONFIG_PATH, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# UPLOAD USERNAME
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def load_upload_username() -> Optional[str]:
+    """Load the saved upload username from config file.
+
+    Returns:
+        The saved username string, or None if not set.
+    """
+    import json
+    if not CONFIG_PATH.exists():
+        return None
+    try:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            config = json.load(f)
+        return config.get("upload_username")
+    except (json.JSONDecodeError, IOError):
+        return None
+
+
+def save_upload_username(username: str) -> None:
+    """Save the upload username to config file."""
+    import json
+    config = {}
+    if CONFIG_PATH.exists():
+        try:
+            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                config = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+
+    config["upload_username"] = username
+
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2)
 
 
 # Gemini API constants

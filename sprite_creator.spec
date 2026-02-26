@@ -1,6 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 """
-PyInstaller spec file for AI Sprite Creator
+PyInstaller spec file for ST Sprite Creator
 
 Build with:
     pyinstaller sprite_creator.spec
@@ -117,7 +117,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='AI Sprite Creator',
+    name='ST Sprite Creator',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -139,5 +139,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='AI Sprite Creator',
+    name='ST Sprite Creator',
 )

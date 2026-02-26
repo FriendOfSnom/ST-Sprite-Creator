@@ -422,6 +422,11 @@ For characters NOT created by Sprite Creator:
 
     def on_enter(self) -> None:
         """Restore values from state if available."""
+        # Clear cached normalization so it re-runs when the user advances forward.
+        # This handles the case where the user went back to change settings.
+        self._normalized_image = None
+        self.state.normalized_image = None
+
         # Check if character was created by this app (has archetype in character.yml)
         # Only lock settings if voice is valid (girl/boy) — otherwise let user pick
         is_sprite_creator_character = (
@@ -500,17 +505,20 @@ For characters NOT created by Sprite Creator:
 
         log_info(f"SETTINGS: Name={self.state.display_name}, Archetype={self.state.archetype_label}, Voice={self.state.voice}, Gender={self.state.gender_style}, Hair={self.state.hair_length}, Mode={self.state.source_mode}")
 
-        # For image mode, run normalization before advancing
+        # For image mode, always re-run normalization when advancing forward.
+        # This ensures the normalized image is fresh even if the user went back
+        # and changed settings or is re-entering this step.
         # (Skip for add-to-existing mode - we use existing images)
         if self.state.source_mode == "image" and self.state.image_path and not self.state.is_adding_to_existing:
-            # Check if already normalized (either locally or in state from previous run)
-            already_normalized = (
-                self._normalized_image is not None
-                or self.state.normalized_image is not None
-            )
-            if not already_normalized and not self._is_normalizing:
-                self._start_normalization()
-                return False  # Don't advance yet - will advance after normalization completes
+            if not self._is_normalizing:
+                if self._normalized_image is not None:
+                    # Just finished normalizing — allow advancement
+                    pass
+                else:
+                    # No normalization yet (first time or re-entry) — start it
+                    self.state.normalized_image = None
+                    self._start_normalization()
+                    return False
 
         return True
 

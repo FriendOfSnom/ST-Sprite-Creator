@@ -1,5 +1,5 @@
 """
-Full Wizard Controller for AI Sprite Creator.
+Full Wizard Controller for ST Sprite Creator.
 
 Provides a unified wizard interface that handles the entire sprite creation
 process from source selection to final output. All screens are wizard steps
@@ -66,7 +66,7 @@ class FullWizard:
             api_key: Gemini API key. If None, will be obtained via ensure_api_key.
         """
         self.root = tk.Tk()
-        self.root.title("AI Sprite Creator")
+        self.root.title("ST Sprite Creator")
         self.root.protocol("WM_DELETE_WINDOW", self._on_cancel)
 
         apply_dark_theme(self.root)
@@ -182,7 +182,7 @@ class FullWizard:
         # Title
         tk.Label(
             header,
-            text="AI Sprite Creator",
+            text="ST Sprite Creator",
             bg=BG_SECONDARY,
             fg=TEXT_COLOR,
             font=TITLE_FONT,
@@ -457,6 +457,11 @@ class FullWizard:
 
         if new_step.frame:
             new_step.frame.pack(fill="both", expand=True)
+
+        # Re-enable Next button before entering the new step.
+        # Steps that need it disabled (e.g. SetupStep waiting for crop accept)
+        # will disable it themselves in on_enter().
+        self._next_btn.configure(state="normal")
 
         try:
             new_step.on_enter()

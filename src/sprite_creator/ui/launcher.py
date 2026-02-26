@@ -1,5 +1,5 @@
 """
-Main Launcher Window for AI Sprite Creator.
+Main Launcher Window for ST Sprite Creator.
 
 Provides a graphical launcher with three tool options:
 1. Character Sprite Creator (primary) - Full AI-powered sprite generation pipeline
@@ -30,6 +30,8 @@ from ..config import (
     SMALL_FONT,
     CARD_PADDING,
     BACKUPS_BASE_DIR,
+    load_upload_username,
+    save_upload_username,
 )
 from .tk_common import (
     apply_dark_theme,
@@ -47,7 +49,7 @@ AI_STUDIO_USAGE_URL = "https://aistudio.google.com/usage"
 
 
 # Help text for the launcher
-LAUNCHER_HELP_TEXT = """Welcome to AI Sprite Creator!
+LAUNCHER_HELP_TEXT = """Welcome to ST Sprite Creator!
 
 Choose one of the tools:
 
@@ -74,6 +76,10 @@ Expression Sheet Generator
 Create expression reference sheets from existing character folders.
 Use this if you already have characters and want visual reference sheets.
 
+Sprite Database
+Browse and download community-created characters. Upload your own
+characters directly from the finalize screen after creation.
+
 Sprite Tester
 Preview character sprites in a simulated Ren'Py environment. Tests outfit
 switching, expressions, and the character loading system.
@@ -82,6 +88,7 @@ Footer Buttons:
 - API Settings: Configure your Google Gemini API key
 - View API Usage: Opens Google AI Studio usage dashboard
 - View README: Re-read the welcome guide and documentation
+- Upload Settings: Set or change your display name for database uploads
 - Clear Backups: Delete full-size backup images to free disk space
   (reduces quality when adding to existing characters)
 
@@ -113,7 +120,7 @@ class ToolCard(tk.Frame):
         self._base_bg = CARD_BG
 
         # Padding frame
-        inner = tk.Frame(self, bg=CARD_BG, padx=16, pady=10)
+        inner = tk.Frame(self, bg=CARD_BG, padx=12, pady=6)
         inner.pack(fill="both", expand=True)
 
         # Icon/emoji area (optional)
@@ -123,9 +130,9 @@ class ToolCard(tk.Frame):
                 text=icon_text,
                 bg=CARD_BG,
                 fg=TEXT_COLOR,
-                font=(SECTION_FONT[0], 22),
+                font=(SECTION_FONT[0], 18),
             )
-            icon_label.pack(pady=(0, 4))
+            icon_label.pack(pady=(0, 2))
             icon_label.bind("<Button-1>", self._handle_click)
             icon_label.bind("<Enter>", self._on_enter)
             icon_label.bind("<Leave>", self._on_leave)
@@ -138,7 +145,7 @@ class ToolCard(tk.Frame):
             fg=TEXT_COLOR,
             font=SECTION_FONT,
         )
-        title_label.pack(pady=(0, 6))
+        title_label.pack(pady=(0, 4))
 
         # Description
         desc_label = tk.Label(
@@ -147,7 +154,7 @@ class ToolCard(tk.Frame):
             bg=CARD_BG,
             fg=TEXT_SECONDARY,
             font=SMALL_FONT,
-            wraplength=220,
+            wraplength=180,
             justify="center",
         )
         desc_label.pack()
@@ -163,7 +170,7 @@ class ToolCard(tk.Frame):
                 padx=8,
                 pady=2,
             )
-            badge.pack(pady=(10, 0))
+            badge.pack(pady=(6, 0))
             badge.bind("<Button-1>", self._handle_click)
             badge.bind("<Enter>", self._on_enter)
             badge.bind("<Leave>", self._on_leave)
@@ -210,7 +217,7 @@ class ToolCard(tk.Frame):
 
 class LauncherWindow:
     """
-    Main launcher window for the AI Sprite Creator application.
+    Main launcher window for the ST Sprite Creator application.
     """
 
     def __init__(self, on_sprite_creator: Callable, on_expression_sheets: Callable,
@@ -235,7 +242,7 @@ class LauncherWindow:
 
         # Apply dark theme and sizing
         apply_dark_theme(self.root)
-        apply_window_size(self.root, "large")
+        apply_window_size(self.root, "standard")
 
         self._build_ui()
         self._result: Optional[str] = None
@@ -278,10 +285,6 @@ class LauncherWindow:
         self._scroll_canvas.bind("<Configure>", lambda e: _on_configure())
         self._main_frame = main_frame
 
-        # Mouse wheel scrolling
-        def _on_mousewheel(event):
-            self._scroll_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
-        self._scroll_canvas.bind_all("<MouseWheel>", _on_mousewheel)
 
         # Header with help button
         header_frame = tk.Frame(main_frame, bg=BG_COLOR)
@@ -316,12 +319,12 @@ class LauncherWindow:
         # Subtitle
         subtitle_label = tk.Label(
             main_frame,
-            text="AI-powered character sprite generation for visual novels",
+            text="AI-powered character sprite generation for Student Transfer",
             bg=BG_COLOR,
             fg=TEXT_SECONDARY,
             font=BODY_FONT,
         )
-        subtitle_label.pack(pady=(0, 16))
+        subtitle_label.pack(pady=(0, 10))
 
         # Tool cards container (2x2 grid)
         cards_frame = tk.Frame(main_frame, bg=BG_COLOR)
@@ -339,7 +342,7 @@ class LauncherWindow:
             primary=True,
             on_click=self._select_sprite_creator,
         )
-        card1.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+        card1.grid(row=0, column=0, padx=8, pady=6, sticky="nsew")
 
         card2 = ToolCard(
             cards_frame,
@@ -349,7 +352,7 @@ class LauncherWindow:
             primary=False,
             on_click=self._select_add_to_existing,
         )
-        card2.grid(row=0, column=1, padx=10, pady=10, sticky="nsew")
+        card2.grid(row=0, column=1, padx=8, pady=6, sticky="nsew")
 
         # Row 1: Expression Sheets + Sprite Tester
         card3 = ToolCard(
@@ -360,7 +363,7 @@ class LauncherWindow:
             primary=False,
             on_click=self._select_expression_sheets,
         )
-        card3.grid(row=1, column=0, padx=10, pady=10, sticky="nsew")
+        card3.grid(row=1, column=0, padx=8, pady=6, sticky="nsew")
 
         card4 = ToolCard(
             cards_frame,
@@ -370,11 +373,22 @@ class LauncherWindow:
             primary=False,
             on_click=self._select_sprite_tester,
         )
-        card4.grid(row=1, column=1, padx=10, pady=10, sticky="nsew")
+        card4.grid(row=1, column=1, padx=8, pady=6, sticky="nsew")
+
+        # Row 2: Sprite Database (centered, spans both columns)
+        card5 = ToolCard(
+            cards_frame,
+            title="Sprite\nDatabase",
+            description="Browse characters uploaded by the community.",
+            icon_text="\U0001F310",  # Globe emoji
+            primary=False,
+            on_click=self._open_sprite_database,
+        )
+        card5.grid(row=2, column=0, columnspan=2, padx=8, pady=6)
 
         # Footer
         footer_frame = tk.Frame(main_frame, bg=BG_COLOR)
-        footer_frame.pack(fill="x", pady=(16, 0))
+        footer_frame.pack(fill="x", pady=(10, 0))
 
         footer_text = tk.Label(
             footer_frame,
@@ -423,7 +437,16 @@ class LauncherWindow:
             self._clear_backups,
             width=14,
         )
-        clear_btn.pack(side="left")
+        clear_btn.pack(side="left", padx=(0, 8))
+
+        # Upload Settings button
+        upload_btn = create_secondary_button(
+            btn_row,
+            "Upload Settings",
+            self._open_upload_settings,
+            width=14,
+        )
+        upload_btn.pack(side="left")
 
     def _unbind_scroll(self):
         """Unbind scroll events before closing."""
@@ -470,6 +493,10 @@ class LauncherWindow:
         """Open the welcome/README window."""
         show_welcome(parent=self.root)
 
+    def _open_sprite_database(self):
+        """Open the SpriteBot database in the default browser."""
+        webbrowser.open("http://thesaint.servebeer.com:8085/")
+
     def _clear_backups(self):
         """Clear all saved full-size character backups."""
         if not BACKUPS_BASE_DIR.exists() or not any(BACKUPS_BASE_DIR.iterdir()):
@@ -513,6 +540,49 @@ class LauncherWindow:
                     f"Failed to clear backups:\n{e}",
                     parent=self.root,
                 )
+
+    def _open_upload_settings(self):
+        """Open a dialog to view/change the upload username."""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Upload Settings")
+        dialog.configure(bg=BG_COLOR)
+        dialog.resizable(False, False)
+        dialog.grab_set()
+        dialog.transient(self.root)
+
+        # Center on parent
+        dialog.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() // 2) - 160
+        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - 60
+        dialog.geometry(f"320x150+{x}+{y}")
+
+        tk.Label(
+            dialog, text="Upload Display Name:",
+            bg=BG_COLOR, fg=TEXT_COLOR, font=BODY_FONT,
+        ).pack(pady=(16, 8), padx=16, anchor="w")
+
+        entry = tk.Entry(dialog, font=BODY_FONT, width=32)
+        entry.pack(padx=16)
+
+        current = load_upload_username()
+        if current:
+            entry.insert(0, current)
+        entry.focus_set()
+
+        def on_save():
+            val = entry.get().strip()
+            if val:
+                save_upload_username(val)
+                messagebox.showinfo("Saved", f"Upload name set to \"{val}\".", parent=dialog)
+                dialog.destroy()
+            else:
+                messagebox.showwarning("Empty Name", "Please enter a display name.", parent=dialog)
+
+        btn_row = tk.Frame(dialog, bg=BG_COLOR)
+        btn_row.pack(pady=(12, 0))
+        create_primary_button(btn_row, "Save", on_save, width=8).pack(side="left", padx=4)
+        create_secondary_button(btn_row, "Cancel", dialog.destroy, width=8).pack(side="left", padx=4)
+        entry.bind("<Return>", lambda e: on_save())
 
     def _update_scrollbar(self) -> None:
         """Show scrollbars only when content overflows."""

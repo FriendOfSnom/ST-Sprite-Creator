@@ -1122,6 +1122,10 @@ Opens the character folder in your file explorer. From here you can:
 - Review individual images
 - Make manual adjustments if needed
 
+Upload to Database
+Uploads your character to the community sprite database. On first use,
+you'll be prompted for a display name (saved for future uploads).
+
 USING IN STUDENT TRANSFER
 Copy the entire character folder into your scenario's characters folder:
   game/scenario/<your_scenario>/characters/
@@ -1137,6 +1141,7 @@ Click Finish to close the wizard."""
         self._guide_text: Optional[tk.Text] = None
         self._actions_frame: Optional[tk.Frame] = None
         self._finalized = False  # Track if finalization has already run
+        self._uploaded = False   # Track if upload has been done this session
 
     def build_ui(self, parent: tk.Frame) -> None:
         parent.configure(bg=BG_COLOR)
@@ -1388,6 +1393,14 @@ Click Finish to close the wizard."""
             self._actions_frame,
             "Open Output Folder",
             self._open_output_folder,
+            width=20,
+        ).pack(pady=(0, 12))
+
+        # Upload to Database button
+        create_secondary_button(
+            self._actions_frame,
+            "Upload to Database",
+            self._upload_to_database,
             width=20,
         ).pack(pady=(0, 12))
 
@@ -1741,6 +1754,148 @@ Click Finish to close the wizard."""
                 subprocess.run(["xdg-open", str(folder_path)], check=False)
         except Exception as e:
             show_error_dialog(self.parent, "Error", f"Failed to open folder:\n{e}")
+
+    def _upload_to_database(self) -> None:
+        """Zip the character folder and upload it to the SpriteBot database."""
+        if self._uploaded:
+            messagebox.showwarning(
+                "Already Uploaded",
+                "This character has already been uploaded this session."
+            )
+            return
+
+        if not self.state.character_folder or not self.state.character_folder.exists():
+            messagebox.showerror("Error", "No character folder available.")
+            return
+
+        from ...config import load_upload_username, save_upload_username
+
+        # Check for saved username; prompt if not set
+        username = load_upload_username()
+        if not username:
+            username = self._prompt_for_username()
+            if not username:
+                return  # User cancelled
+
+        # Confirm upload
+        char_name = self.state.character_folder.name
+        if not messagebox.askyesno(
+            "Upload to Database",
+            f"Upload \"{char_name}\" to the SpriteBot database as \"{username}\"?",
+        ):
+            return
+
+        # Zip and upload in a thread with loading overlay
+        import threading
+        self._upload_btn_state("disabled")
+        self.show_loading("Zipping character folder...")
+        threading.Thread(target=self._do_upload, args=(username,), daemon=True).start()
+
+    def _prompt_for_username(self) -> Optional[str]:
+        """Show a dialog to enter an upload username. Returns None if cancelled."""
+        from ...config import save_upload_username
+
+        dialog = tk.Toplevel(self.wizard.root)
+        dialog.title("Set Upload Username")
+        dialog.configure(bg=BG_COLOR)
+        dialog.resizable(False, False)
+        dialog.grab_set()
+
+        # Center on parent
+        dialog.update_idletasks()
+        pw = self.wizard.root
+        x = pw.winfo_x() + (pw.winfo_width() // 2) - 150
+        y = pw.winfo_y() + (pw.winfo_height() // 2) - 60
+        dialog.geometry(f"300x140+{x}+{y}")
+
+        tk.Label(
+            dialog, text="Enter your display name for uploads:",
+            bg=BG_COLOR, fg=TEXT_COLOR, font=BODY_FONT,
+        ).pack(pady=(16, 8), padx=16)
+
+        entry = tk.Entry(dialog, font=BODY_FONT, width=30)
+        entry.pack(padx=16)
+        entry.focus_set()
+
+        result = [None]
+
+        def on_ok(event=None):
+            val = entry.get().strip()
+            if val:
+                save_upload_username(val)
+                result[0] = val
+                dialog.destroy()
+
+        btn_row = tk.Frame(dialog, bg=BG_COLOR)
+        btn_row.pack(pady=(12, 0))
+        create_primary_button(btn_row, "OK", on_ok, width=8).pack(side="left", padx=4)
+        create_secondary_button(btn_row, "Cancel", dialog.destroy, width=8).pack(side="left", padx=4)
+        entry.bind("<Return>", on_ok)
+
+        dialog.wait_window()
+        return result[0]
+
+    def _upload_btn_state(self, state: str) -> None:
+        """Enable or disable the upload button if it exists."""
+        if self._actions_frame:
+            for child in self._actions_frame.winfo_children():
+                if isinstance(child, tk.Button) and child.cget("text") == "Upload to Database":
+                    child.configure(state=state)
+                    if state == "disabled":
+                        child.configure(text="Uploading...")
+                    else:
+                        child.configure(text="Upload to Database")
+                    break
+
+    def _do_upload(self, username: str) -> None:
+        """Zip and upload the character folder (runs in background thread)."""
+        import tempfile
+        import zipfile
+
+        char_folder = self.state.character_folder
+        zip_path = None
+        try:
+            # Step 1: Zip
+            tmp = tempfile.NamedTemporaryFile(
+                suffix=".zip", prefix=f"{char_folder.name}_", delete=False
+            )
+            zip_path = Path(tmp.name)
+            tmp.close()
+
+            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                for file in char_folder.rglob("*"):
+                    if file.is_file():
+                        arcname = f"{char_folder.name}/{file.relative_to(char_folder)}"
+                        zf.write(file, arcname)
+
+            # Step 2: Upload
+            self.schedule_callback(lambda: self.show_loading("Uploading to database..."))
+
+            from ...api.uploader import upload_character_zip
+            success, message = upload_character_zip(zip_path, username)
+
+            self.schedule_callback(lambda: self._upload_finished(success, message))
+
+        except Exception as e:
+            self.schedule_callback(
+                lambda: self._upload_finished(False, f"Failed to create zip: {e}")
+            )
+        finally:
+            if zip_path and zip_path.exists():
+                try:
+                    zip_path.unlink()
+                except Exception:
+                    pass
+
+    def _upload_finished(self, success: bool, message: str) -> None:
+        """Handle upload completion (called on main thread)."""
+        self.hide_loading()
+        self._upload_btn_state("normal")
+        if success:
+            self._uploaded = True
+            messagebox.showinfo("Upload Complete", message)
+        else:
+            messagebox.showerror("Upload Failed", message)
 
     def _on_finish(self) -> None:
         """Open the output folder and close the application."""

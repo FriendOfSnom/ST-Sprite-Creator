@@ -1,5 +1,5 @@
 """
-AI Sprite Creator
+ST Sprite Creator
 
 AI-powered character sprite generator using Google Gemini vision models.
 Provides a full wizard interface for creating visual novel character sprites.
@@ -14,7 +14,7 @@ Package Structure:
     tester/     - Ren'Py sprite testing
 """
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 
 # Lazy imports for heavy dependencies
 def __getattr__(name):
