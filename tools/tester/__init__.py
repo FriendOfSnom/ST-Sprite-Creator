@@ -718,10 +718,11 @@ def create_test_project(char_dir: Path) -> Path | None:
                   *(f"lpt{i}" for i in range(1, 10))}
 
     def _ignore_reserved(directory, contents):
-        """Skip files/dirs with Windows reserved device names or legacy _backups."""
+        """Skip files/dirs with Windows reserved device names, legacy _backups, and .rpy files."""
         return {name for name in contents
                 if name.lower() in SKIP_NAMES
-                or Path(name).stem.lower() in SKIP_NAMES}
+                or Path(name).stem.lower() in SKIP_NAMES
+                or Path(name).suffix.lower() == '.rpy'}
 
     char_dest = images_dir / char_name
     shutil.copytree(char_dir, char_dest, ignore=_ignore_reserved)

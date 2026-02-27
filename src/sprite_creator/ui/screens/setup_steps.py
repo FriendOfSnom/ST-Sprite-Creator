@@ -108,7 +108,7 @@ The AI will design the character based on your description.
 FROM FUSION
 Click the "From Fusion" card to merge two existing character images into a new unique character.
 
-Select two character images (left and right), fill in the character settings, then click FUSION! to generate a merged character. Great for creating children of two characters or combining character traits.
+Select two character images (left and right), fill in the character settings (including hair length for girl voices), then click FUSION! to generate a merged character. Great for creating children of two characters or combining character traits.
 
 Tips for best fusion results:
 - Use images with similar art styles
@@ -149,6 +149,9 @@ After selecting, click Next to continue."""
         self._fusion_name_var: Optional[tk.StringVar] = None
         self._fusion_arch_var: Optional[tk.StringVar] = None
         self._fusion_arch_menu: Optional[tk.OptionMenu] = None
+        self._fusion_hair_var: Optional[tk.StringVar] = None
+        self._fusion_hair_frame: Optional[tk.Frame] = None
+        self._fusion_hair_menu: Optional[tk.OptionMenu] = None
         self._fusion_voice_indicator: Optional[tk.Label] = None
         self._fusion_name_entry: Optional[tk.Entry] = None
 
@@ -299,6 +302,26 @@ After selecting, click Next to continue."""
         self._fusion_arch_menu.configure(width=12, bg="#1E1E1E", fg=TEXT_COLOR)
         self._fusion_arch_menu.pack(side="left")
 
+        # Hair length selection (girl voice only) - inline with other settings
+        HAIR_LENGTHS = ["Super Short", "Short", "Medium", "Long", "Super Long"]
+
+        self._fusion_hair_frame = tk.Frame(row_frame, bg=CARD_BG)
+        # Don't pack yet - visibility controlled by _update_fusion_hair_visibility
+
+        tk.Label(
+            self._fusion_hair_frame,
+            text="Hair Length:",
+            bg=CARD_BG,
+            fg=TEXT_COLOR,
+            font=BODY_FONT,
+        ).pack(side="left", padx=(0, 6))
+
+        self._fusion_hair_var = tk.StringVar(value="")
+        self._fusion_hair_var.trace_add("write", lambda *_: self._update_fusion_button())
+        self._fusion_hair_menu = tk.OptionMenu(self._fusion_hair_frame, self._fusion_hair_var, *HAIR_LENGTHS)
+        self._fusion_hair_menu.configure(width=12, bg="#1E1E1E", fg=TEXT_COLOR)
+        self._fusion_hair_menu.pack(side="left")
+
         # Images row
         images_frame = tk.Frame(parent, bg=BG_COLOR)
         images_frame.pack(fill="both", expand=True, padx=20)
@@ -389,9 +412,9 @@ After selecting, click Next to continue."""
         filename = filedialog.askopenfilename(
             title="Choose character source image",
             filetypes=[
-                ("Images", "*.png;*.jpg;*.jpeg;*.webp"),
+                ("Images", "*.png *.jpg *.jpeg *.webp"),
                 ("PNG", "*.png"),
-                ("JPEG", "*.jpg;*.jpeg"),
+                ("JPEG", "*.jpg *.jpeg"),
                 ("WEBP", "*.webp"),
                 ("All files", "*.*"),
             ],
@@ -427,6 +450,7 @@ After selecting, click Next to continue."""
         self._fusion_voice_indicator.configure(text=f"({voice.capitalize()})")
 
         self._update_fusion_archetype_menu()
+        self._update_fusion_hair_visibility()
 
         if not self._fusion_name_var.get().strip():
             name = pick_random_name(voice, self._girl_names, self._boy_names)
@@ -434,6 +458,15 @@ After selecting, click Next to continue."""
 
         self._fusion_name_entry.focus_set()
         self._update_fusion_button()
+
+    def _update_fusion_hair_visibility(self) -> None:
+        """Show hair length dropdown for girl voice, hide for boy."""
+        voice = self._fusion_voice_var.get() if self._fusion_voice_var else ""
+        if voice == "girl":
+            self._fusion_hair_frame.pack(side="left", padx=(20, 0))
+        else:
+            self._fusion_hair_frame.pack_forget()
+            self._fusion_hair_var.set("")
 
     def _update_fusion_archetype_menu(self) -> None:
         """Update fusion archetype menu based on voice."""
@@ -509,9 +542,10 @@ After selecting, click Next to continue."""
         has_voice = bool(self._fusion_voice_var.get())
         has_name = bool(self._fusion_name_var.get().strip())
         has_arch = bool(self._fusion_arch_var.get())
+        has_hair = self._fusion_voice_var.get() != "girl" or bool(self._fusion_hair_var.get())
         has_result = self.state.fusion_result_image is not None
 
-        if has_left and has_right and has_voice and has_name and has_arch:
+        if has_left and has_right and has_voice and has_name and has_arch and has_hair:
             self._fusion_btn.configure(state="normal")
             if has_result:
                 self._fusion_status_label.configure(
@@ -532,6 +566,8 @@ After selecting, click Next to continue."""
                 missing.append("name")
             if not has_arch:
                 missing.append("archetype")
+            if not has_hair:
+                missing.append("hair length")
             self._fusion_status_label.configure(text=f"Missing: {', '.join(missing)}", fg=TEXT_SECONDARY)
 
     def _run_fusion(self) -> None:
@@ -543,6 +579,7 @@ After selecting, click Next to continue."""
         self.state.voice = self._fusion_voice_var.get()
         self.state.display_name = self._fusion_name_var.get().strip()
         self.state.archetype_label = self._fusion_arch_var.get()
+        self.state.hair_length = self._fusion_hair_var.get() if self._fusion_voice_var.get() == "girl" else ""
 
         self._is_fusing = True
         self._fusion_btn.configure(state="disabled")
@@ -598,6 +635,7 @@ After selecting, click Next to continue."""
             prompt = build_fusion_prompt(
                 archetype_label=self.state.archetype_label,
                 gender_style=self.state.gender_style,
+                hair_length=self.state.hair_length,
             )
 
             result_bytes = call_gemini_fusion(
@@ -717,6 +755,10 @@ After selecting, click Next to continue."""
                 messagebox.showerror("Missing Archetype", "Please select an archetype.")
                 return False
 
+            if self._fusion_voice_var.get() == "girl" and not self._fusion_hair_var.get():
+                messagebox.showerror("Missing Hair Length", "Please select a hair length.")
+                return False
+
             if self.state.fusion_result_image is None:
                 messagebox.showerror(
                     "No Fusion Result",
@@ -728,6 +770,7 @@ After selecting, click Next to continue."""
             self.state.voice = self._fusion_voice_var.get()
             self.state.display_name = name_value
             self.state.archetype_label = self._fusion_arch_var.get()
+            self.state.hair_length = self._fusion_hair_var.get() if self._fusion_voice_var.get() == "girl" else ""
 
         return True
 

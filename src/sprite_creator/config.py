@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Tuple
 # APPLICATION INFO
 # ═══════════════════════════════════════════════════════════════════════════════
 APP_NAME = "ST Sprite Creator"
-APP_VERSION = "1.1.1"
+APP_VERSION = "1.2.0"
 
 
 def get_resource_path(relative_path: str = "") -> Path:
@@ -252,26 +252,26 @@ OUTFIT_KEYS: List[str] = ["formal", "casual"]
 # The first entry is always neutral.
 EXPRESSIONS_SEQUENCE: List[Tuple[str, str]] = [
     # CORE (0-7) - Must-haves for any VN
-    ("0",  "neutral and relaxed with a soft smile"),
-    ("1",  "neutral with mouth open as if talking"),
-    ("2",  "happy and cheerful"),
-    ("3",  "sad and worried"),
-    ("4",  "angry or really annoyed"),
-    ("5",  "surprised with wide eyes"),
-    ("6",  "embarrassed with a bright red blush"),
-    ("7",  "confused with a raised eyebrow and questioning look"),
+    ("0",  "neutral with a soft smile"),
+    ("1",  "talking"),
+    ("2",  "happy"),
+    ("3",  "sad"),
+    ("4",  "angry"),
+    ("5",  "surprised"),
+    ("6",  "embarrassed and blushing"),
+    ("7",  "confused"),
     # EXTENDED (8-12) - Common additions
-    ("8",  "laughing at a good joke"),
-    ("9",  "scared and terrified with wide fearful eyes"),
-    ("10", "crying and bawling"),
-    ("11", "skeptical and doubtful with narrowed eyes"),
-    ("12", "deep in thought, pensive"),
+    ("8",  "laughing"),
+    ("9",  "scared"),
+    ("10", "crying"),
+    ("11", "skeptical"),
+    ("12", "pensive, deep in thought"),
     # PERSONALITY (13-14)
-    ("13", "confident with an almost smug look"),
+    ("13", "confident and smug"),
     ("14", "playful, giving a wink"),
     # SITUATIONAL (15-16)
-    ("15", "sleepy and tired with half-lidded drowsy eyes"),
-    ("16", "aroused and blushing heavily"),
+    ("15", "sleepy"),
+    ("16", "aroused and blushing"),
 ]
 
 

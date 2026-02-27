@@ -459,7 +459,7 @@ Click Next when the scale looks right."""
         self._new_expr_selector_frame: Optional[tk.Frame] = None
         self._new_expr_images: Dict[str, Image.Image] = {}  # label -> PIL Image
         self._new_expr_var: Optional[tk.StringVar] = None
-        self._new_expr_menu: Optional[tk.OptionMenu] = None
+        self._new_expr_menu: Optional[ttk.Combobox] = None
 
     def build_ui(self, parent: tk.Frame) -> None:
         parent.configure(bg=BG_COLOR)
@@ -495,9 +495,12 @@ Click Next when the scale looks right."""
         ).pack(side="left", padx=(0, 8))
 
         self._ref_var = tk.StringVar(value="")
-        self._ref_menu = tk.OptionMenu(self._ref_selector_frame, self._ref_var, "")
-        self._ref_menu.configure(width=20, bg=CARD_BG, fg=TEXT_COLOR)
+        self._ref_menu = ttk.Combobox(
+            self._ref_selector_frame, textvariable=self._ref_var,
+            state="readonly", width=22
+        )
         self._ref_menu.pack(side="left")
+        self._ref_menu.bind("<<ComboboxSelected>>", lambda e: self._on_ref_change(self._ref_var.get()))
 
         # New expression selector (for add-to-existing mode, hidden by default)
         self._new_expr_selector_frame = tk.Frame(parent, bg=BG_COLOR)
@@ -512,11 +515,12 @@ Click Next when the scale looks right."""
         ).pack(side="left", padx=(0, 8))
 
         self._new_expr_var = tk.StringVar(value="")
-        self._new_expr_menu = tk.OptionMenu(
-            self._new_expr_selector_frame, self._new_expr_var, ""
+        self._new_expr_menu = ttk.Combobox(
+            self._new_expr_selector_frame, textvariable=self._new_expr_var,
+            state="readonly", width=27
         )
-        self._new_expr_menu.configure(width=25, bg=CARD_BG, fg=TEXT_COLOR)
         self._new_expr_menu.pack(side="left")
+        self._new_expr_menu.bind("<<ComboboxSelected>>", lambda e: self._on_new_expr_change(self._new_expr_var.get()))
 
         # Canvas row
         canvas_frame = tk.Frame(parent, bg=BG_COLOR)
@@ -655,15 +659,12 @@ Click Next when the scale looks right."""
             )
 
         # Update reference dropdown
-        menu = self._ref_menu["menu"]
-        menu.delete(0, "end")
         names = sorted(self._references.keys())
+        self._ref_menu["values"] = names
         if names:
             # Default to "john" if available, otherwise first alphabetically
             default_name = "john" if "john" in names else names[0]
             self._ref_var.set(default_name)
-            for name in names:
-                menu.add_command(label=name, command=lambda n=name: self._on_ref_change(n))
 
         # Load generated expression images for right side
         # (NOT base_pose_path — that's the cropped input which can differ in
@@ -684,18 +685,14 @@ Click Next when the scale looks right."""
                             pass
 
         # Populate expression dropdown and set default
-        expr_menu = self._new_expr_menu["menu"]
-        expr_menu.delete(0, "end")
         if self._new_expr_images:
             labels = list(self._new_expr_images.keys())
+            self._new_expr_menu["values"] = labels
             default_label = labels[0]
             self._new_expr_var.set(default_label)
             self._user_img = self._new_expr_images[default_label]
-            for label in labels:
-                expr_menu.add_command(
-                    label=label,
-                    command=lambda l=label: self._on_new_expr_change(l)
-                )
+        else:
+            self._new_expr_menu["values"] = []
 
         # Fallback: scan working folder for any generated face
         if not self._user_img:
@@ -879,20 +876,15 @@ Click Next when the scale looks right."""
                             pass
 
         # Populate dropdown and set default
-        menu = self._new_expr_menu["menu"]
-        menu.delete(0, "end")
         if self._new_expr_images:
             labels = list(self._new_expr_images.keys())
+            self._new_expr_menu["values"] = labels
             # Default to first expression (usually 0.png)
             default_label = labels[0]
             self._new_expr_var.set(default_label)
             self._user_img = self._new_expr_images[default_label]
-
-            for label in labels:
-                menu.add_command(
-                    label=label,
-                    command=lambda l=label: self._on_new_expr_change(l)
-                )
+        else:
+            self._new_expr_menu["values"] = []
 
         # Fallback: scan working folder for any generated face
         if not self._user_img:
@@ -1690,6 +1682,37 @@ Click Finish to close the wizard."""
         lines.append(f"  with easeinleft")
         lines.append("")
 
+        # showChar shorthand
+        lines.append("showChar SHORTHAND")
+        lines.append("-" * 40)
+        lines.append("Instead of remembering pose letters and expression")
+        lines.append("numbers, you can use the showChar command with")
+        lines.append("emotion names:")
+        lines.append("")
+        lines.append(f"  showChar {name} happy at center with dissolve")
+        lines.append(f"  showChar {name} sad at left")
+        lines.append(f"  showChar {name} neutral")
+        lines.append("")
+        lines.append("showChar automatically picks the right pose letter")
+        lines.append("based on the current outfit. Set the outfit first:")
+        lines.append("")
+        lines.append(f"  outfit {name} casual")
+        lines.append(f"  showChar {name} happy at center")
+        lines.append("")
+        lines.append("You can omit the emotion to keep the current")
+        lines.append("expression and just move or re-show the character:")
+        lines.append("")
+        lines.append(f"  showChar {name} at left with dissolve")
+        lines.append(f"  showChar {name} with exchange")
+        lines.append("")
+        lines.append("Available emotions:")
+        # Import here to avoid circular imports at module level
+        from ...processing.showchar_generator import EMOTION_NAMES
+        for i, ename in enumerate(EMOTION_NAMES):
+            if i < len(expressions):
+                lines.append(f"  {i:>2} = {ename}")
+        lines.append("")
+
         return "\n".join(lines)
 
     def _write_usage_guide_file(self) -> None:
@@ -2103,6 +2126,11 @@ Click Finish to close the wizard."""
             generate_expression_sheets_for_root(char_dir)
             print(f"[INFO] Generated expression sheets for {self.state.display_name}")
 
+            # Generate showChar Ren'Py statement files
+            self._update_progress("Generating showChar helper files...")
+            from ...processing.showchar_generator import generate_showchar_files
+            generate_showchar_files(char_dir)
+
             # Write How-To-Use.txt with ST usage instructions
             self._update_progress("Writing usage guide...")
             self._write_usage_guide_file()
@@ -2244,6 +2272,11 @@ Click Finish to close the wizard."""
                 log_info(f"Regenerating expression sheets for poses: {affected_poses}")
                 # Generate for the whole character (will cover all poses)
                 generate_expression_sheets_for_root(existing_folder)
+
+            # Generate showChar Ren'Py statement files
+            self._update_progress("Generating showChar helper files...")
+            from ...processing.showchar_generator import generate_showchar_files
+            generate_showchar_files(existing_folder)
 
             # Update state to point to existing folder for summary display
             self.state.character_folder = existing_folder

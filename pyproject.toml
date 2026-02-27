@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "sprite-creator"
-version = "1.1.1"
+version = "1.2.0"
 description = "AI-powered character sprite generator for Student Transfer using Google Gemini"
 readme = "README.md"
 license = {text = "AGPL-3.0"}

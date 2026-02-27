@@ -50,6 +50,7 @@ def _generate_expression_with_safety_recovery(
     edge_cleanup_passes: Optional[int] = None,
     for_interactive_review: bool = False,
     bg_removal_mode: str = "rembg",
+    archetype_label: str = "",
 ) -> Union[Optional[bytes], Optional[Tuple[bytes, bytes]]]:
     """
     Generate expression with 2-tier safety error recovery.
@@ -69,6 +70,7 @@ def _generate_expression_with_safety_recovery(
         edge_cleanup_tolerance: Custom tolerance for edge cleanup (uses default if None).
         edge_cleanup_passes: Custom passes for edge cleanup (uses default if None).
         for_interactive_review: If True, return (original_bytes, rembg_bytes) tuple.
+        archetype_label: Character archetype (e.g., "young woman", "adult man").
 
     Returns:
         If for_interactive_review=False: Image bytes with transparent BG, or None if failed.
@@ -79,7 +81,7 @@ def _generate_expression_with_safety_recovery(
 
     def try_generate(desc: str, tier_name: str) -> Union[Optional[bytes], Optional[Tuple[bytes, bytes]]]:
         try:
-            prompt = build_expression_prompt(desc, background_color)
+            prompt = build_expression_prompt(desc, background_color, archetype_label=archetype_label)
             if for_interactive_review:
                 # Get original bytes without rembg
                 original_bytes = call_gemini_image_edit(
@@ -170,6 +172,7 @@ def generate_expressions_for_single_outfit_once(
     for_interactive_review: bool = False,
     bg_removal_mode: str = "rembg",
     progress_callback: Optional[Callable[[int, int, str], None]] = None,
+    archetype_label: str = "",
 ) -> Union[List[Path], Tuple[List[Path], List[Tuple[bytes, bytes]]]]:
     """
     Generate a full expression set for a single outfit in a single pose.
@@ -267,6 +270,7 @@ def generate_expressions_for_single_outfit_once(
             edge_cleanup_passes=edge_cleanup_passes,
             for_interactive_review=for_interactive_review,
             bg_removal_mode=bg_removal_mode,
+            archetype_label=archetype_label,
         )
 
         if result:
@@ -305,6 +309,7 @@ def regenerate_single_expression(
     edge_cleanup_tolerance: Optional[int] = None,
     edge_cleanup_passes: Optional[int] = None,
     bg_removal_mode: str = "rembg",
+    archetype_label: str = "",
 ) -> Path:
     """
     Regenerate a single expression image for one outfit.
@@ -358,6 +363,7 @@ def regenerate_single_expression(
         edge_cleanup_tolerance=edge_cleanup_tolerance,
         edge_cleanup_passes=edge_cleanup_passes,
         bg_removal_mode=bg_removal_mode,
+        archetype_label=archetype_label,
     )
 
     if img_bytes:
@@ -382,6 +388,7 @@ def generate_and_review_expressions_for_pose(
     expressions_sequence: List[Tuple[str, str]],
     cleanup_settings: Optional[Dict[Path, Tuple[int, int]]] = None,
     bg_removal_modes: Optional[Dict[Path, str]] = None,
+    archetype_label: str = "",
 ) -> None:
     """
     For a given pose directory (e.g., 'a'), iterate each outfit and:
@@ -447,6 +454,7 @@ def generate_and_review_expressions_for_pose(
             edge_cleanup_passes=outfit_passes,
             for_interactive_review=True,
             bg_removal_mode=outfit_mode,
+            archetype_label=archetype_label,
         )
         expr_paths_initial, expr_cleanup_data, _gen_keys, _fail_keys = result
 
@@ -537,6 +545,7 @@ def generate_and_review_expressions_for_pose(
                     edge_cleanup_passes=outfit_passes,
                     for_interactive_review=True,
                     bg_removal_mode=outfit_mode,
+                    archetype_label=archetype_label,
                 )
                 expr_paths_initial, expr_cleanup_data, _gen_keys, _fail_keys = result
                 path_to_cleanup_idx = {p: i for i, p in enumerate(expr_paths_initial)}
@@ -578,6 +587,7 @@ def generate_and_review_expressions_for_pose(
                         edge_cleanup_tolerance=outfit_tolerance,
                         edge_cleanup_passes=outfit_passes,
                         bg_removal_mode=outfit_mode,
+                        archetype_label=archetype_label,
                     )
                     # Loop to show the updated images
                     continue

@@ -799,6 +799,7 @@ When adding expressions to existing outfits:
             for_interactive_review=True,  # Need cleanup_data for manual BG removal
             bg_removal_mode=bg_removal_mode,
             progress_callback=progress_callback,
+            archetype_label=self.state.archetype_label,
         )
 
         if failed_keys:
@@ -1039,7 +1040,7 @@ When adding expressions to existing outfits:
             try:
                 # Build prompt and call Gemini
                 # Backups are always full-size, so no upscale/sharpen needed
-                prompt = build_expression_prompt(expr_desc, background_color, add_to_existing=False)
+                prompt = build_expression_prompt(expr_desc, background_color, add_to_existing=False, archetype_label=self.state.archetype_label)
                 original_bytes = call_gemini_image_edit(
                     self.state.api_key, prompt, image_b64,
                     skip_background_removal=True,
@@ -1689,7 +1690,7 @@ When adding expressions to existing outfits:
             image_b64 = load_image_as_base64(base_path)
             background_color = "solid black (#000000)"
             # Use add_to_existing=True for upscale instruction since source is already scaled
-            prompt = build_expression_prompt(expr_desc, background_color, add_to_existing=True)
+            prompt = build_expression_prompt(expr_desc, background_color, add_to_existing=True, archetype_label=self.state.archetype_label)
 
             original_bytes = call_gemini_image_edit(
                 self.state.api_key, prompt, image_b64,
@@ -1742,6 +1743,7 @@ When adding expressions to existing outfits:
             edge_cleanup_tolerance=edge_cleanup_tolerance,
             edge_cleanup_passes=edge_cleanup_passes,
             bg_removal_mode=bg_removal_mode,
+            archetype_label=self.state.archetype_label,
         )
 
         # Regular outfits don't return cleanup data

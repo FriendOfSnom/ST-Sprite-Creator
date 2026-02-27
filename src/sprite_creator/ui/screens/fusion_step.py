@@ -64,6 +64,7 @@ SETTINGS
 - Voice: Determines name pool and available archetypes
 - Name: The character's name for the final output
 - Archetype: Affects outfit generation style
+- Hair Length (Girl voice only): Controls hair length in generated outfits
 
 FUSION
 Click the "FUSION!" button to generate the merged character.
@@ -101,6 +102,9 @@ TROUBLESHOOTING
         self._name_var: Optional[tk.StringVar] = None
         self._arch_var: Optional[tk.StringVar] = None
         self._arch_menu: Optional[tk.OptionMenu] = None
+        self._hair_var: Optional[tk.StringVar] = None
+        self._hair_frame: Optional[tk.Frame] = None
+        self._hair_menu: Optional[tk.OptionMenu] = None
         self._voice_indicator: Optional[tk.Label] = None
         self._name_entry: Optional[tk.Entry] = None
 
@@ -236,6 +240,26 @@ TROUBLESHOOTING
         self._arch_menu.configure(width=15, bg="#1E1E1E", fg=TEXT_COLOR)
         self._arch_menu.pack(side="left")
 
+        # Hair length selection (girl voice only)
+        HAIR_LENGTHS = ["Super Short", "Short", "Medium", "Long", "Super Long"]
+
+        self._hair_frame = tk.Frame(row_frame, bg=CARD_BG)
+        # Don't pack yet - visibility controlled by _update_hair_length_visibility
+
+        tk.Label(
+            self._hair_frame,
+            text="Hair Length:",
+            bg=CARD_BG,
+            fg=TEXT_COLOR,
+            font=BODY_FONT,
+        ).pack(side="left", padx=(0, 8))
+
+        self._hair_var = tk.StringVar(value="")
+        self._hair_var.trace_add("write", lambda *_: self._update_fusion_button())
+        self._hair_menu = tk.OptionMenu(self._hair_frame, self._hair_var, *HAIR_LENGTHS)
+        self._hair_menu.configure(width=15, bg="#1E1E1E", fg=TEXT_COLOR)
+        self._hair_menu.pack(side="left")
+
     def _build_images_section(self, parent: tk.Frame) -> None:
         """Build the image slots section."""
         images_frame = tk.Frame(parent, bg=BG_COLOR)
@@ -359,6 +383,9 @@ TROUBLESHOOTING
         # Update archetype menu
         self._update_archetype_menu()
 
+        # Update hair length visibility
+        self._update_hair_length_visibility()
+
         # Set random name if empty
         if not self._name_var.get().strip():
             name = pick_random_name(voice, self._girl_names, self._boy_names)
@@ -366,6 +393,15 @@ TROUBLESHOOTING
 
         self._name_entry.focus_set()
         self._update_fusion_button()
+
+    def _update_hair_length_visibility(self) -> None:
+        """Show hair length dropdown for girl voice, hide for boy."""
+        voice = self._voice_var.get() if self._voice_var else ""
+        if voice == "girl":
+            self._hair_frame.pack(side="left", padx=(30, 0))
+        else:
+            self._hair_frame.pack_forget()
+            self._hair_var.set("")
 
     def _update_archetype_menu(self) -> None:
         """Update archetype menu based on voice."""
@@ -442,9 +478,10 @@ TROUBLESHOOTING
         has_voice = bool(self._voice_var.get())
         has_name = bool(self._name_var.get().strip())
         has_arch = bool(self._arch_var.get())
+        has_hair = self._voice_var.get() != "girl" or bool(self._hair_var.get())
         has_result = self.state.fusion_result_image is not None
 
-        if has_left and has_right and has_voice and has_name and has_arch:
+        if has_left and has_right and has_voice and has_name and has_arch and has_hair:
             self._fusion_btn.configure(state="normal")
             if has_result:
                 # Fusion already done - user can proceed or re-fuse
@@ -470,6 +507,8 @@ TROUBLESHOOTING
                 missing.append("name")
             if not has_arch:
                 missing.append("archetype")
+            if not has_hair:
+                missing.append("hair length")
             self._status_label.configure(text=f"Missing: {', '.join(missing)}", fg=TEXT_SECONDARY)
 
     def _run_fusion(self) -> None:
@@ -481,6 +520,7 @@ TROUBLESHOOTING
         self.state.voice = self._voice_var.get()
         self.state.display_name = self._name_var.get().strip()
         self.state.archetype_label = self._arch_var.get()
+        self.state.hair_length = self._hair_var.get() if self._voice_var.get() == "girl" else ""
 
         self._is_generating = True
         self._fusion_btn.configure(state="disabled")
@@ -513,6 +553,7 @@ TROUBLESHOOTING
             prompt = build_fusion_prompt(
                 archetype_label=self.state.archetype_label,
                 gender_style=self.state.gender_style,
+                hair_length=self.state.hair_length,
             )
 
             # Call Gemini fusion API
@@ -580,6 +621,11 @@ TROUBLESHOOTING
         if self.state.archetype_label:
             self._arch_var.set(self.state.archetype_label)
 
+        # Restore hair length and visibility
+        if self.state.hair_length:
+            self._hair_var.set(self.state.hair_length)
+        self._update_hair_length_visibility()
+
         # Restore images
         if self.state.fusion_left_path:
             self._display_image(self.state.fusion_left_path, "left")
@@ -611,6 +657,10 @@ TROUBLESHOOTING
             messagebox.showerror("Missing Archetype", "Please select an archetype.")
             return False
 
+        if self._voice_var.get() == "girl" and not self._hair_var.get():
+            messagebox.showerror("Missing Hair Length", "Please select a hair length.")
+            return False
+
         # Check that fusion has been run
         if self.state.fusion_result_image is None:
             messagebox.showerror(
@@ -623,6 +673,7 @@ TROUBLESHOOTING
         self.state.voice = self._voice_var.get()
         self.state.display_name = name_value
         self.state.archetype_label = self._arch_var.get()
+        self.state.hair_length = self._hair_var.get() if self._voice_var.get() == "girl" else ""
         self.state.source_mode = "fusion"
 
         return True

@@ -149,7 +149,7 @@ def _generate_outfit_with_safety_recovery(
     def try_generate(desc: str, tier_name: str) -> Optional[bytes]:
         tried_prompts.add(desc)
         try:
-            prompt = build_outfit_prompt(desc, gender_style, background_color, hair_length=hair_length)
+            prompt = build_outfit_prompt(desc, gender_style, background_color, hair_length=hair_length, archetype_label=archetype_label)
             return call_gemini_image_edit(api_key, prompt, image_b64, skip_background_removal)
         except GeminiSafetyError as e:
             print(f"[WARN] {tier_name}: Safety error during '{outfit_key}' generation")
@@ -412,7 +412,7 @@ def generate_standard_uniform_outfit(
         # Fallback to normal outfit prompt path
         print("[WARN] No uniform reference found, falling back to normal prompt-based uniform.")
         image_b64 = load_image_as_base64(base_pose_path)
-        prompt = build_outfit_prompt(outfit_desc, gender_style, background_color, hair_length=hair_length)
+        prompt = build_outfit_prompt(outfit_desc, gender_style, background_color, hair_length=hair_length, archetype_label=archetype_label)
 
         if for_interactive_review:
             original_bytes = call_gemini_image_edit(api_key, prompt, image_b64, skip_background_removal=True)

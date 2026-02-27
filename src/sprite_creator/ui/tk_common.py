@@ -175,6 +175,21 @@ def apply_dark_theme(root: tk.Tk) -> None:
               background=[("active", BG_COLOR)],
               foreground=[("active", TEXT_COLOR)])
 
+    # Combobox style (for scrollable dropdowns)
+    style.configure("TCombobox",
+                    fieldbackground=CARD_BG,
+                    background=CARD_BG,
+                    foreground=TEXT_COLOR,
+                    font=BODY_FONT)
+    style.map("TCombobox",
+              fieldbackground=[("readonly", CARD_BG)],
+              foreground=[("readonly", TEXT_COLOR)])
+    # Style the dropdown listbox
+    root.option_add("*TCombobox*Listbox.background", CARD_BG)
+    root.option_add("*TCombobox*Listbox.foreground", TEXT_COLOR)
+    root.option_add("*TCombobox*Listbox.selectBackground", ACCENT_COLOR)
+    root.option_add("*TCombobox*Listbox.selectForeground", TEXT_COLOR)
+
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # STYLED BUTTON FACTORIES
