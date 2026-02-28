@@ -310,7 +310,7 @@ def generate_single_outfit(
             return result
 
     # Normal text-prompt-based outfit with safety recovery
-    out_stem = outfits_dir / outfit_key.capitalize()
+    out_stem = outfits_dir / outfit_key
 
     try:
         if for_interactive_review:
@@ -417,13 +417,13 @@ def generate_standard_uniform_outfit(
         if for_interactive_review:
             original_bytes = call_gemini_image_edit(api_key, prompt, image_b64, skip_background_removal=True)
             rembg_bytes = strip_background_ai(original_bytes, skip_edge_cleanup=True)
-            out_stem = outfits_dir / outfit_key.capitalize()
+            out_stem = outfits_dir / outfit_key
             final_path = save_image_bytes_as_png(rembg_bytes, out_stem)
             print(f"  Saved fallback prompt-based uniform to: {final_path}")
             return (final_path, original_bytes, rembg_bytes)
         else:
             img_bytes = call_gemini_image_edit(api_key, prompt, image_b64)
-            out_stem = outfits_dir / outfit_key.capitalize()
+            out_stem = outfits_dir / outfit_key
             final_path = save_image_bytes_as_png(img_bytes, out_stem)
             print(f"  Saved fallback prompt-based uniform to: {final_path}")
             return final_path
@@ -452,7 +452,7 @@ def generate_standard_uniform_outfit(
             skip_background_removal=True,
         )
         rembg_bytes = strip_background_ai(original_bytes, skip_edge_cleanup=True)
-        out_stem = outfits_dir / outfit_key.capitalize()
+        out_stem = outfits_dir / outfit_key
         final_path = save_image_bytes_as_png(rembg_bytes, out_stem)
         print(f"  Saved standardized school uniform to: {final_path}")
         return (final_path, original_bytes, rembg_bytes)
@@ -462,7 +462,7 @@ def generate_standard_uniform_outfit(
             uniform_prompt,
             image_b64,
         )
-        out_stem = outfits_dir / outfit_key.capitalize()
+        out_stem = outfits_dir / outfit_key
         final_path = save_image_bytes_as_png(img_bytes, out_stem)
         print(f"  Saved standardized school uniform to: {final_path}")
         return final_path
@@ -512,10 +512,10 @@ def generate_outfits_once(
     cleanup_data: List[Tuple[bytes, bytes]] = []
     used_prompts: Dict[str, str] = {}
 
-    # Optional: include base pose as "Base.png" outfit (with background removal)
+    # Optional: include base pose as "base.png" outfit (with background removal)
     if include_base_outfit:
         base_bytes = base_pose_path.read_bytes()  # Original with solid background
-        base_out_path = (outfits_dir / "Base").with_suffix(".png")
+        base_out_path = (outfits_dir / "base").with_suffix(".png")
 
         if for_interactive_review:
             # Run rembg without edge cleanup (user will apply cleanup in review UI)

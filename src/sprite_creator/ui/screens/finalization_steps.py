@@ -1586,7 +1586,7 @@ Click Finish to close the wizard."""
             lines.append("")
 
         # Show
-        first_ai_outfit = list(ai_poses.values())[0] if ai_poses else "Base"
+        first_ai_outfit = list(ai_poses.values())[0] if ai_poses else "base"
         lines.append("SHOWING THE CHARACTER")
         lines.append("-" * 40)
         lines.append(f"  show {name} {first_ai_letter}_0 at center")

@@ -1713,17 +1713,21 @@ When adding expressions to existing outfits:
         idx = new_outfit_names.index(outfit_name)
         outfit_path = self.state.outfit_paths[idx]
 
-        # Determine output directory based on outfit name
-        # Use next_pose_letter in add-to-existing mode
+        # Determine output directory — use outfit_path.stem to match the folder
+        # name created by initial generation (expression_generator.py uses
+        # outfit_path.stem). Using the dropdown key (outfit_name) can differ in
+        # case (e.g. "formal" vs "Formal") which creates a separate directory on
+        # case-sensitive filesystems (Linux), orphaning the regenerated file.
         if self.state.is_adding_to_existing:
             pose_letter = self.state.next_pose_letter or "a"
         else:
             pose_letter = "a"
         pose_dir = self.state.character_folder / pose_letter
-        if outfit_name.lower() == "base":
+        outfit_stem = outfit_path.stem
+        if outfit_stem.lower() == "base":
             out_dir = pose_dir / "faces" / "face"
         else:
-            out_dir = pose_dir / "faces" / outfit_name
+            out_dir = pose_dir / "faces" / outfit_stem
 
         # Get cleanup settings from outfit review (if available)
         edge_cleanup_tolerance = None

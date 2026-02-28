@@ -115,6 +115,9 @@ def pick_representative_outfit(char_dir: Path) -> Path:
     a_dir = char_dir / "a"
     outfits_dir = a_dir / "outfits"
     preferred_names = [
+        "base.webp", "formal.webp", "casual.webp",
+        "base.png", "formal.png", "casual.png",
+        # Legacy capitalized names (characters created before v1.2.1)
         "Base.webp", "Formal.webp", "Casual.webp",
         "Base.png", "Formal.png", "Casual.png",
     ]
