@@ -58,6 +58,7 @@ from ..tk_common import (
 )
 from ..dialogs import load_name_pool, pick_random_name
 from .base import WizardStep, WizardState
+from ...api.exceptions import GeminiSafetyError
 from ...logging_utils import log_info, log_error, log_generation_start, log_generation_complete
 
 
@@ -76,6 +77,10 @@ class SourceStep(WizardStep):
     STEP_ID = "source"
     STEP_TITLE = "Source"
     STEP_NUMBER = 1
+    STEP_TIP = (
+        "Choose how to create your character: upload an existing image, "
+        "describe one with a text prompt, or fuse two characters together."
+    )
     STEP_HELP = """How to Create Your Character
 
 This step determines how your character will be created.
@@ -92,7 +97,7 @@ For best results, your image should have:
 - Clear, unobstructed view of the character
 - Resolution of at least 512x512 pixels
 
-The AI will normalize your image (sharpen, add black background) and then generate outfit variations and expressions while preserving the character's appearance.
+The AI will normalize your image (sharpen, add solid background) and then generate outfit variations and expressions while preserving the character's appearance.
 
 FROM A TEXT PROMPT
 Click the "From a Text Prompt" card to describe a character from scratch.
@@ -168,7 +173,9 @@ After selecting, click Next to continue."""
             bg=BG_COLOR,
             fg=TEXT_COLOR,
             font=PAGE_TITLE_FONT,
-        ).pack(pady=(0, 16))
+        ).pack(pady=(0, 8))
+
+        self._build_tip_bar(parent)
 
         # Cards container
         cards_frame = tk.Frame(parent, bg=BG_COLOR)
@@ -233,6 +240,17 @@ After selecting, click Next to continue."""
             width=18,
         )
         browse_btn.pack(pady=(8, 0))
+
+        # NSFW content warning
+        tk.Label(
+            self._image_preview_frame,
+            text="Gemini cannot process nudity or minimal clothing\n"
+                 "(underwear, swimsuits). Use a clothed character image.",
+            bg=BG_COLOR,
+            fg=WARNING_TEXT,
+            font=SMALL_FONT,
+            justify="center",
+        ).pack(pady=(8, 0))
 
         self._preview_image_display = tk.Label(
             self._image_preview_frame,
@@ -387,6 +405,15 @@ After selecting, click Next to continue."""
             control_frame, text="Select two images and fill in settings", bg=BG_COLOR, fg=TEXT_SECONDARY, font=SMALL_FONT
         )
         self._fusion_status_label.pack(pady=(8, 0))
+
+        # NSFW content warning for fusion
+        tk.Label(
+            control_frame,
+            text="Gemini cannot process nudity or minimal clothing. Use clothed character images.",
+            bg=BG_COLOR,
+            fg=WARNING_TEXT,
+            font=SMALL_FONT,
+        ).pack(pady=(4, 0))
 
     def _select_source_card(self, card: OptionCard, mode: str) -> None:
         """Handle source card selection."""
@@ -623,6 +650,7 @@ After selecting, click Next to continue."""
         try:
             from ...api.gemini_client import call_gemini_fusion, load_image_as_base64
             from ...api.prompt_builders import build_fusion_prompt
+            from ...config import load_background_color
 
             api_key = self.state.api_key
             if not api_key:
@@ -636,6 +664,7 @@ After selecting, click Next to continue."""
                 archetype_label=self.state.archetype_label,
                 gender_style=self.state.gender_style,
                 hair_length=self.state.hair_length,
+                background_color=load_background_color(),
             )
 
             result_bytes = call_gemini_fusion(
@@ -653,6 +682,14 @@ After selecting, click Next to continue."""
             else:
                 self.schedule_callback(lambda: self._on_fusion_error("No image returned"))
 
+        except GeminiSafetyError:
+            safety_msg = (
+                "Gemini blocked this content due to safety filters.\n\n"
+                "This usually happens with revealing clothing, suggestive "
+                "poses, or nudity. Try different input images."
+            )
+            log_error("Fusion blocked by safety filters")
+            self.schedule_callback(lambda: self._on_fusion_error(safety_msg))
         except Exception as e:
             error_msg = str(e)
             log_error(f"Fusion failed: {error_msg}")
@@ -785,6 +822,10 @@ class SetupStep(WizardStep):
     STEP_ID = "setup"
     STEP_TITLE = "Setup"
     STEP_NUMBER = 3
+    STEP_TIP = (
+        "Review your character image. Use Crop to reframe, or add a text "
+        "description to guide how Gemini styles the character."
+    )
     STEP_HELP = """Character Setup
 
 This step prepares the base image for sprite generation.
@@ -926,7 +967,9 @@ Click Next when your character looks right."""
             bg=BG_COLOR,
             fg=TEXT_COLOR,
             font=PAGE_TITLE_FONT,
-        ).pack(pady=(0, 12))
+        ).pack(pady=(0, 8))
+
+        self._build_tip_bar(parent)
 
         # Two-column container
         columns = tk.Frame(parent, bg=BG_COLOR)
@@ -1435,6 +1478,14 @@ Click Next when your character looks right."""
                 log_generation_complete("character_from_text", False, "No image returned")
                 self.schedule_callback(lambda: self._on_generation_error("No image returned"))
 
+        except GeminiSafetyError:
+            safety_msg = (
+                "Gemini blocked this content due to safety filters.\n\n"
+                "This usually happens with revealing or suggestive descriptions. "
+                "Try a more conservatively described character."
+            )
+            log_generation_complete("character_from_text", False, "Safety filter blocked")
+            self.schedule_callback(lambda: self._on_generation_error(safety_msg))
         except Exception as e:
             error_msg = str(e)
             log_generation_complete("character_from_text", False, error_msg)
@@ -1620,9 +1671,13 @@ Click Next when your character looks right."""
 
         # Handle add-to-existing mode separately
         if self.state.is_adding_to_existing:
+            self._update_tip(
+                "Select a sprite from the existing character to use as the base for new outfits."
+            )
             self._setup_add_to_existing_mode()
             return
 
+        self._update_tip(self.STEP_TIP)
         if self.state.source_mode == "prompt":
             # Hide image modify frame (prompt mode uses concept frame)
             self._image_modify_frame.pack_forget()
@@ -1710,9 +1765,9 @@ Click Next when your character looks right."""
         """Run character modification in background thread."""
         try:
             from io import BytesIO
-            from ...api.gemini_client import get_api_key, call_gemini_image_edit
+            from ...api.gemini_client import get_api_key, call_gemini_image_edit, load_image_as_base64
             from ...api.prompt_builders import build_character_modification_prompt
-            from ...api.gemini_client import load_image_as_base64
+            from ...config import load_background_color
 
             # Get API key
             api_key = self.state.api_key or get_api_key(use_gui=True)
@@ -1730,7 +1785,7 @@ Click Next when your character looks right."""
                 image_b64 = load_image_as_base64(self.state.image_path)
 
             # Build modification prompt
-            prompt = build_character_modification_prompt(instructions)
+            prompt = build_character_modification_prompt(instructions, background_color=load_background_color())
 
             # Call Gemini to modify
             result_bytes = call_gemini_image_edit(
@@ -1891,8 +1946,10 @@ Click Next when your character looks right."""
         # Build sprite cards from existing poses
         self._build_sprite_cards()
 
-        # Try to auto-load base.png if it exists
-        base_path = self.state.existing_character_folder / "base.png"
+        # Try to auto-load original.png (or legacy base.png) if it exists
+        base_path = self.state.existing_character_folder / "original.png"
+        if not base_path.exists():
+            base_path = self.state.existing_character_folder / "base.png"  # Legacy fallback
         if base_path.exists():
             try:
                 self._selected_sprite_image = Image.open(base_path).convert("RGBA")
@@ -1970,10 +2027,12 @@ Click Next when your character looks right."""
                         col = 0
                         row += 1
 
-        # 3. base.png from character root (lowest priority)
-        base_path = char_folder / "base.png"
+        # 3. original.png (or legacy base.png) from character root (lowest priority)
+        base_path = char_folder / "original.png"
+        if not base_path.exists():
+            base_path = char_folder / "base.png"  # Legacy fallback
         if base_path.exists():
-            self._create_sprite_card(cards_grid, base_path, "Base", row, col)
+            self._create_sprite_card(cards_grid, base_path, "Original", row, col)
             col += 1
             if col >= max_cols:
                 col = 0
@@ -2252,9 +2311,11 @@ Click Next when your character looks right."""
                         except Exception:
                             pass
 
-        # Last resort: base.png
+        # Last resort: original.png (or legacy base.png)
         if not loaded:
-            base_path = char_folder / "base.png"
+            base_path = char_folder / "original.png"
+            if not base_path.exists():
+                base_path = char_folder / "base.png"  # Legacy fallback
             if base_path.exists():
                 try:
                     self._selected_sprite_image = Image.open(base_path).convert("RGBA")
@@ -2412,8 +2473,9 @@ Click Next when your character looks right."""
             temp_path = temp_dir / f"normalize_input_{id(self)}.png"
             self._selected_sprite_image.save(temp_path, format="PNG")
 
+            from ...config import load_background_color
             image_b64 = load_image_as_base64(str(temp_path))
-            prompt = build_normalize_existing_character_prompt()
+            prompt = build_normalize_existing_character_prompt(background_color=load_background_color())
 
             result_bytes = call_gemini_image_edit(
                 api_key=api_key,
@@ -2518,13 +2580,17 @@ class OptionsStep(WizardStep):
     STEP_ID = "options"
     STEP_TITLE = "Options"
     STEP_NUMBER = 4
+    STEP_TIP = (
+        "Pick which outfits and expressions to generate. "
+        "You can also save and load custom outfit presets."
+    )
     STEP_HELP = """Generation Options
 
 This step selects which outfits and expressions to generate.
 
 INCLUDE BASE IMAGE AS OUTFIT?
 Choose whether your original character image (with its current outfit) should be included as one of the final outfits.
-- Yes: The base image becomes the "Base" outfit
+- Yes: The base image becomes the "Original" outfit
 - No: Only generated outfits are included
 
 OUTFITS (Left Column)
@@ -2661,7 +2727,9 @@ Click Next when you've made your selections."""
             bg=BG_COLOR,
             fg=TEXT_COLOR,
             font=PAGE_TITLE_FONT,
-        ).pack(pady=(0, 16))
+        ).pack(pady=(0, 8))
+
+        self._build_tip_bar(parent)
 
         # --- Warnings Row (holds content warning + overwrite warning side by side) ---
         self._warnings_row = tk.Frame(parent, bg=BG_COLOR)
@@ -2758,7 +2826,7 @@ Click Next when you've made your selections."""
 
         tk.Label(
             base_header,
-            text="Include Base Image as Outfit",
+            text="Include Original Image as Outfit",
             bg=CARD_BG,
             fg=ACCENT_COLOR,
             font=SECTION_FONT,
@@ -2786,7 +2854,7 @@ Click Next when you've made your selections."""
 
         tk.Label(
             base_outfit_frame,
-            text="Uses the base character image as the 'Base' outfit",
+            text="Uses the base character image as the 'Original' outfit",
             bg=CARD_BG,
             fg=TEXT_SECONDARY,
             font=SMALL_FONT,
@@ -3983,7 +4051,16 @@ Click Next when you've made your selections."""
 
     def on_enter(self) -> None:
         """Prepare options step based on archetype."""
-        # Hide "Include Base Image as Outfit" in add-to-existing mode (irrelevant)
+        # Update tip for mode
+        if self.state.is_adding_to_existing:
+            self._update_tip(
+                "Pick new outfits to generate. You can also select existing outfits "
+                "below to generate new expressions for them."
+            )
+        else:
+            self._update_tip(self.STEP_TIP)
+
+        # Hide "Include Original Image as Outfit" in add-to-existing mode (irrelevant)
         if self.state.is_adding_to_existing:
             self._base_outfit_frame.pack_forget()
             self._use_base_as_outfit_var.set(0)
@@ -4149,7 +4226,7 @@ Click Next when you've made your selections."""
         # Save base outfit option
         self.state.use_base_as_outfit = bool(self._use_base_as_outfit_var.get())
 
-        log_info(f"OPTIONS: Outfits={selected}, Exprs={[k for k, _ in expr_seq]}, BaseAsOutfit={self.state.use_base_as_outfit}")
+        log_info(f"OPTIONS: Outfits={selected}, Exprs={[k for k, _ in expr_seq]}, OriginalAsOutfit={self.state.use_base_as_outfit}")
 
         # Handle add-to-existing mode: collect existing outfits to extend
         # Only process if there are poses created by Sprite Creator

@@ -19,7 +19,7 @@ from ..config import (
     SAFETY_FALLBACK_EXPRESSION_PROMPTS,
 )
 
-from ..api.exceptions import GeminiAPIError, GeminiSafetyError
+from ..api.exceptions import GeminiAPIError, GeminiQuotaError, GeminiSafetyError
 from ..api.gemini_client import (
     call_gemini_image_edit,
     call_gemini_text_or_refs,
@@ -76,8 +76,8 @@ def _generate_expression_with_safety_recovery(
         If for_interactive_review=False: Image bytes with transparent BG, or None if failed.
         If for_interactive_review=True: (original_bytes, rembg_bytes) tuple, or None if failed.
     """
-    # Use black background for clean AI removal (consistent with outfits)
-    background_color = "solid black (#000000)"
+    from ..config import load_background_color
+    background_color = load_background_color()
 
     def try_generate(desc: str, tier_name: str) -> Union[Optional[bytes], Optional[Tuple[bytes, bytes]]]:
         try:
@@ -123,6 +123,8 @@ def _generate_expression_with_safety_recovery(
             if e.safety_ratings:
                 print(f"[WARN] Safety ratings: {e.safety_ratings}")
             return None
+        except GeminiQuotaError:
+            raise  # Quota errors are not recoverable by retrying — propagate immediately
         except GeminiAPIError as e:
             print(f"[WARN] {tier_name}: API error for expression {expr_index} ('{expr_key}'): {e}")
             return None
@@ -177,10 +179,10 @@ def generate_expressions_for_single_outfit_once(
     """
     Generate a full expression set for a single outfit in a single pose.
 
-    Layout (pose 'a', outfit 'Base'):
-        a/outfits/Base.png
+    Layout (pose 'a', outfit 'Original'):
+        a/outfits/Original.png
         a/faces/face/0.png ... N.png
-    For non-base outfits (e.g. 'Formal'):
+    For non-original outfits (e.g. 'Formal'):
         a/faces/Formal/0.webp ... N.webp
 
     0.png is always the neutral outfit image itself.
@@ -216,7 +218,7 @@ def generate_expressions_for_single_outfit_once(
         return generated_paths
 
     outfit_name = outfit_path.stem
-    if outfit_name.lower() == "base":
+    if outfit_name.lower() == "original":
         out_dir = faces_root / "face"
     else:
         out_dir = faces_root / outfit_name
@@ -438,7 +440,7 @@ def generate_and_review_expressions_for_pose(
             print(f"  [INFO] Using manual background removal mode for {outfit_name}")
 
         # Determine the folder where the expression images for this outfit live
-        if outfit_name.lower() == "base":
+        if outfit_name.lower() == "original":
             out_dir = faces_root / "face"
         else:
             out_dir = faces_root / outfit_name
@@ -655,8 +657,8 @@ def generate_initial_character_from_prompt(
             "Gemini will rely on the text prompt alone."
         )
 
-    # Use black background for clean AI removal (consistent with outfits)
-    full_prompt = build_prompt_for_idea(concept, archetype_label, gender_style, background_color="solid black (#000000)", hair_length=hair_length)
+    from ..config import load_background_color
+    full_prompt = build_prompt_for_idea(concept, archetype_label, gender_style, background_color=load_background_color(), hair_length=hair_length)
     print("[Gemini] Generating new character from text prompt...")
     img_bytes = call_gemini_text_or_refs(api_key, full_prompt, refs)
 

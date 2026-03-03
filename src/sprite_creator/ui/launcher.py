@@ -30,8 +30,11 @@ from ..config import (
     SMALL_FONT,
     CARD_PADDING,
     BACKUPS_BASE_DIR,
+    BACKGROUND_COLOR_PRESETS,
     load_upload_username,
     save_upload_username,
+    load_background_color,
+    save_background_color,
 )
 from .tk_common import (
     apply_dark_theme,
@@ -242,7 +245,7 @@ class LauncherWindow:
 
         # Apply dark theme and sizing
         apply_dark_theme(self.root)
-        apply_window_size(self.root, "standard")
+        apply_window_size(self.root, "large")
 
         self._build_ui()
         self._result: Optional[str] = None
@@ -284,7 +287,6 @@ class LauncherWindow:
         main_frame.bind("<Configure>", _on_configure)
         self._scroll_canvas.bind("<Configure>", lambda e: _on_configure())
         self._main_frame = main_frame
-
 
         # Header with help button
         header_frame = tk.Frame(main_frame, bg=BG_COLOR)
@@ -399,13 +401,13 @@ class LauncherWindow:
         )
         footer_text.pack()
 
-        # Button row for footer actions
-        btn_row = tk.Frame(footer_frame, bg=BG_COLOR)
-        btn_row.pack(pady=(10, 0))
+        # Button rows for footer actions (two rows to fit on small screens)
+        btn_row1 = tk.Frame(footer_frame, bg=BG_COLOR)
+        btn_row1.pack(pady=(10, 4))
 
         # API Settings button
         settings_btn = create_secondary_button(
-            btn_row,
+            btn_row1,
             "API Settings",
             self._open_api_settings,
             width=14,
@@ -414,7 +416,7 @@ class LauncherWindow:
 
         # View Usage button
         usage_btn = create_secondary_button(
-            btn_row,
+            btn_row1,
             "View API Usage",
             self._open_usage_dashboard,
             width=14,
@@ -423,16 +425,19 @@ class LauncherWindow:
 
         # View README button
         readme_btn = create_secondary_button(
-            btn_row,
+            btn_row1,
             "View README",
             self._open_readme,
             width=14,
         )
-        readme_btn.pack(side="left", padx=(0, 8))
+        readme_btn.pack(side="left")
+
+        btn_row2 = tk.Frame(footer_frame, bg=BG_COLOR)
+        btn_row2.pack(pady=(0, 0))
 
         # Clear Backups button
         clear_btn = create_secondary_button(
-            btn_row,
+            btn_row2,
             "Clear Backups",
             self._clear_backups,
             width=14,
@@ -441,12 +446,21 @@ class LauncherWindow:
 
         # Upload Settings button
         upload_btn = create_secondary_button(
-            btn_row,
+            btn_row2,
             "Upload Settings",
             self._open_upload_settings,
             width=14,
         )
-        upload_btn.pack(side="left")
+        upload_btn.pack(side="left", padx=(0, 8))
+
+        # Sprite Settings button
+        sprite_settings_btn = create_secondary_button(
+            btn_row2,
+            "Sprite Settings",
+            self._open_sprite_settings,
+            width=14,
+        )
+        sprite_settings_btn.pack(side="left")
 
     def _unbind_scroll(self):
         """Unbind scroll events before closing."""
@@ -583,6 +597,53 @@ class LauncherWindow:
         create_primary_button(btn_row, "Save", on_save, width=8).pack(side="left", padx=4)
         create_secondary_button(btn_row, "Cancel", dialog.destroy, width=8).pack(side="left", padx=4)
         entry.bind("<Return>", lambda e: on_save())
+
+    def _open_sprite_settings(self):
+        """Open a dialog to configure sprite generation settings."""
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Sprite Settings")
+        dialog.configure(bg=BG_COLOR)
+        dialog.resizable(False, False)
+        dialog.grab_set()
+        dialog.transient(self.root)
+
+        # Center on parent
+        dialog.update_idletasks()
+        x = self.root.winfo_x() + (self.root.winfo_width() // 2) - 180
+        y = self.root.winfo_y() + (self.root.winfo_height() // 2) - 80
+        dialog.geometry(f"360x180+{x}+{y}")
+
+        tk.Label(
+            dialog, text="Background Color:",
+            bg=BG_COLOR, fg=TEXT_COLOR, font=BODY_FONT,
+        ).pack(pady=(16, 4), padx=16, anchor="w")
+
+        tk.Label(
+            dialog,
+            text="Color used behind the character in generated images.\n"
+                 "Non-black colors may work better for dark-haired characters.",
+            bg=BG_COLOR, fg=TEXT_SECONDARY, font=SMALL_FONT,
+            justify="left",
+        ).pack(padx=16, anchor="w")
+
+        color_var = tk.StringVar(value=load_background_color())
+        color_menu = tk.OptionMenu(dialog, color_var, *BACKGROUND_COLOR_PRESETS)
+        color_menu.configure(width=28, bg="#1E1E1E", fg=TEXT_COLOR)
+        color_menu.pack(padx=16, pady=(8, 0))
+
+        def on_save():
+            save_background_color(color_var.get())
+            messagebox.showinfo(
+                "Saved",
+                f"Background color set to: {color_var.get()}",
+                parent=dialog,
+            )
+            dialog.destroy()
+
+        btn_row = tk.Frame(dialog, bg=BG_COLOR)
+        btn_row.pack(pady=(12, 0))
+        create_primary_button(btn_row, "Save", on_save, width=8).pack(side="left", padx=4)
+        create_secondary_button(btn_row, "Cancel", dialog.destroy, width=8).pack(side="left", padx=4)
 
     def _update_scrollbar(self) -> None:
         """Show scrollbars only when content overflows."""

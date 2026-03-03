@@ -600,7 +600,7 @@ def review_initial_base_pose(
     """
     Review normalized base pose and decide whether to accept, regenerate, or cancel.
 
-    Also allows user to choose whether to treat this base pose as a 'Base' outfit.
+    Also allows user to choose whether to treat this base pose as an 'Original' outfit.
     Provides a text box for additional regeneration instructions and a reset button.
 
     Args:
@@ -610,7 +610,7 @@ def review_initial_base_pose(
     Returns:
         (choice, use_as_outfit, additional_text) where:
             choice: "accept", "regenerate", "reset", or "cancel"
-            use_as_outfit: Whether to keep this as a Base outfit
+            use_as_outfit: Whether to keep this as an Original outfit
             additional_text: Optional text for regeneration instructions
     """
     root = tk.Tk()
@@ -622,7 +622,7 @@ def review_initial_base_pose(
 
     instructions = (
         "Review the normalized base pose. Accept, regenerate, or cancel.\n"
-        "Check the box below to also use this as a 'Base' outfit."
+        "Check the box below to also use this as an 'Original' outfit."
     )
 
     tk.Label(
@@ -661,7 +661,7 @@ def review_initial_base_pose(
 
     tk.Checkbutton(
         chk_frame,
-        text="Use this normalized base as a 'Base' outfit",
+        text="Use this normalized base as an 'Original' outfit",
         variable=use_as_outfit_var,
         bg=BG_COLOR,
         anchor="w",
@@ -1038,7 +1038,7 @@ def review_initial_base_pose_dual(
     Displays both versions simultaneously and allows the user to:
     - Regenerate either version individually
     - Select which version to use for the rest of the pipeline
-    - Toggle whether to use the normalized base as a 'Base' outfit
+    - Toggle whether to use the normalized base as an 'Original' outfit
 
     Args:
         auto_path: Path to automatic mode (magenta background) image.
@@ -1047,7 +1047,7 @@ def review_initial_base_pose_dual(
     Returns:
         (choice, use_as_outfit, selected_mode) where:
             choice: "accept", "regenerate_auto", "regenerate_manual", or "cancel"
-            use_as_outfit: Whether to keep this as a Base outfit
+            use_as_outfit: Whether to keep this as an Original outfit
             selected_mode: "automatic" or "manual" (which version was selected)
     """
     root = tk.Tk()
@@ -1123,7 +1123,7 @@ def review_initial_base_pose_dual(
     chk_frame.grid(row=2, column=0, columnspan=2, padx=10, pady=(4, 4))
     tk.Checkbutton(
         chk_frame,
-        text="Use this normalized base as a 'Base' outfit",
+        text="Use this normalized base as an 'Original' outfit",
         variable=use_as_outfit_var,
         bg=BG_COLOR,
         anchor="w",

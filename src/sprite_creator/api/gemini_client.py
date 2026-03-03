@@ -18,7 +18,7 @@ from rembg import remove as rembg_remove, new_session as rembg_new_session
 
 from ..config import CONFIG_PATH, GEMINI_API_URL
 from ..logging_utils import log_api_call, log_debug, log_info, log_warning, log_error
-from .exceptions import GeminiAPIError, GeminiSafetyError
+from .exceptions import GeminiAPIError, GeminiQuotaError, GeminiSafetyError
 
 
 # =============================================================================
@@ -46,10 +46,10 @@ from .exceptions import GeminiAPIError, GeminiSafetyError
 #                   bria-rmbg, u2net, silueta
 
 REMBG_MODEL = "isnet-anime"
-REMBG_ALPHA_MATTING = False  # Set to True to enable alpha matting
+REMBG_ALPHA_MATTING = True  # Alpha matting erodes mask edges to reduce halos
 REMBG_ALPHA_MATTING_FOREGROUND_THRESHOLD = 240
 REMBG_ALPHA_MATTING_BACKGROUND_THRESHOLD = 10
-REMBG_ALPHA_MATTING_ERODE_SIZE = 20
+REMBG_ALPHA_MATTING_ERODE_SIZE = 15  # Conservative erosion (lower = less aggressive)
 REMBG_POST_PROCESS_MASK = True
 
 # Edge cleanup: Remove remaining halo pixels after rembg by color matching
@@ -567,10 +567,11 @@ def _call_gemini_with_parts(
                 if response.status_code == 429:
                     resp_text = response.text.lower()
                     if "free_tier" in resp_text or "quota" in resp_text:
-                        raise GeminiAPIError(
+                        raise GeminiQuotaError(
                             "API quota exceeded.\n\n"
                             "This usually means you're using a free-tier API key.\n"
                             "You need a Google Cloud API key with billing enabled.\n\n"
+                            "Go to console.cloud.google.com > Billing to enable billing.\n"
                             "New Google Cloud accounts get $300 in free credits.\n"
                             "Check API Settings on the launcher to update your key."
                         )

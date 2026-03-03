@@ -75,7 +75,7 @@ OUTPUT STRUCTURE
 
   character_name/
     character.yml           Metadata (voice, scale, eye line, colors)
-    base.png                Original base image for reference
+    original.png            Original base image for reference
     a/                      Pose A (first outfit)
       outfits/0.png         Outfit image (body without expression)
       faces/face/

@@ -45,6 +45,7 @@ from ..tk_common import (
     show_error_dialog,
 )
 from .base import WizardStep, WizardState
+from ...api.exceptions import GeminiSafetyError
 from ...logging_utils import log_info, log_error, log_generation_start, log_generation_complete
 
 
@@ -223,6 +224,14 @@ class OutfitReviewStep(WizardStep):
     STEP_ID = "outfit_review"
     STEP_TITLE = "Outfits"
     STEP_NUMBER = 6
+    STEP_TIP = (
+        "\u2022 Auto mode removes the background automatically. "
+        "Adjust Tolerance (edge aggressiveness) and Depth (cleanup passes), then click Apply.\n"
+        "\u2022 If auto mode damages the character (eats into arms/hair), "
+        "switch to Manual mode. You'll clean up the background by hand "
+        "on the NEXT step using a click-to-remove tool.\n"
+        "\u2022 These Tolerance/Depth settings carry forward to all expressions for this outfit."
+    )
     STEP_HELP = """Outfit Review
 
 This step shows all generated outfits. Scroll horizontally to see them all.
@@ -359,26 +368,16 @@ When satisfied with all outfits, click Next to proceed to expression generation.
         bg_menu.pack(side="left")
         self._bg_var.trace_add("write", lambda *_: self._update_all_previews())
 
-        # Inline tip
-        tk.Label(
-            parent,
-            text="💡 Tolerance/Depth settings here will apply to ALL expressions. "
-                 "You can still fix individual expressions on the next step.",
-            bg=BG_COLOR,
-            fg=WARNING_TEXT,
-            font=SMALL_FONT,
-            wraplength=800,
-            justify="left",
-        ).pack(fill="x", pady=(0, 4))
+        self._build_tip_bar(parent)
 
         # Black background warning
         tk.Label(
             parent,
-            text="⚠️ Black areas are the BACKGROUND — it has not been removed yet! "
-                 "Use the Tolerance/Depth sliders and click Apply to remove it. "
-                 "If black background remains, your character will have a large black box around them in-game.",
+            text="⚠️ Black areas = BACKGROUND that still needs removing. "
+                 "Use sliders + Apply, or switch to Manual mode. "
+                 "Leftover black = black box around your character in-game.",
             bg=BG_COLOR,
-            fg=CAUTION_TEXT,  # Bright yellow for visibility
+            fg=CAUTION_TEXT,
             font=SMALL_FONT,
             wraplength=800,
             justify="left",
@@ -466,7 +465,7 @@ When satisfied with all outfits, click Next to proceed to expression generation.
             # Check if outfit selections changed since last generation
             current_keys = []
             if self.state.use_base_as_outfit:
-                current_keys.append("base")
+                current_keys.append("original")
             current_keys.extend(self.state.selected_outfits)
 
             if current_keys != self.state.generated_outfit_keys:
@@ -528,6 +527,14 @@ When satisfied with all outfits, click Next to proceed to expression generation.
             try:
                 paths, cleanup_data, used_prompts = self._do_outfit_generation(update_progress)
                 self.schedule_callback(lambda p=paths, c=cleanup_data, u=used_prompts: self._on_generation_complete(p, c, u))
+            except GeminiSafetyError:
+                safety_msg = (
+                    "Gemini blocked this content due to safety filters.\n\n"
+                    "This usually happens with revealing clothing, suggestive "
+                    "poses, or nudity. Try using a more conservatively dressed "
+                    "character image, or go back and change outfit selections."
+                )
+                self.schedule_callback(lambda msg=safety_msg: self._on_generation_error(msg))
             except Exception as e:
                 error_msg = str(e)
                 self.schedule_callback(lambda msg=error_msg: self._on_generation_error(msg))
@@ -556,8 +563,8 @@ When satisfied with all outfits, click Next to proceed to expression generation.
             )
         self.state.character_folder.mkdir(parents=True, exist_ok=True)
 
-        # Copy base pose to character folder as base.png if not already there
-        base_dest = self.state.character_folder / "base.png"
+        # Copy base pose to character folder as original.png if not already there
+        base_dest = self.state.character_folder / "original.png"
         if self.state.base_pose_path and self.state.base_pose_path.exists() and not base_dest.exists():
             import shutil
             shutil.copy2(self.state.base_pose_path, base_dest)
@@ -574,14 +581,15 @@ When satisfied with all outfits, click Next to proceed to expression generation.
             and not self.state.base_pose_normalized_post_crop
         ):
             if progress_callback:
-                progress_callback(0, len(self.state.selected_outfits), "Normalizing base image")
+                progress_callback(0, len(self.state.selected_outfits), "Normalizing character image")
 
             from io import BytesIO
             from ...api.gemini_client import call_gemini_image_edit, load_image_as_base64
             from ...api.prompt_builders import build_normalize_existing_character_prompt
 
+            from ...config import load_background_color
             image_b64 = load_image_as_base64(self.state.base_pose_path)
-            prompt = build_normalize_existing_character_prompt()
+            prompt = build_normalize_existing_character_prompt(background_color=load_background_color())
             result_bytes = call_gemini_image_edit(
                 api_key=self.state.api_key,
                 prompt=prompt,
@@ -651,7 +659,7 @@ When satisfied with all outfits, click Next to proceed to expression generation.
         # This handles cases where outfits like underwear may be skipped due to safety filters
         generated_keys = []
         if self.state.use_base_as_outfit:
-            generated_keys.append("base")
+            generated_keys.append("original")
         generated_keys.extend(used_prompts.keys())
         self.state.generated_outfit_keys = generated_keys
 
@@ -683,7 +691,7 @@ When satisfied with all outfits, click Next to proceed to expression generation.
         # Mark all generated outfits as needing expression regeneration
         # so the expression step knows to regenerate after full outfit regen
         for key in generated_keys:
-            if key != "base":
+            if key != "original":
                 self.state.outfits_needing_expression_regen.add(key)
 
         # Initialize current bytes from rembg results
@@ -792,7 +800,7 @@ When satisfied with all outfits, click Next to proceed to expression generation.
         ).pack(pady=(1, 1))
 
         # === GROUP 1: Regenerate buttons (horizontal, not for base) ===
-        if name.lower() != "base":
+        if name.lower() != "original":
             # Check if this outfit uses standard_uniform mode (only one option, no "new outfit" needed)
             outfit_config = self.state.outfit_prompt_config.get(name.lower(), {})
             is_standard_uniform = outfit_config.get("use_standard_uniform", False)
@@ -885,10 +893,12 @@ When satisfied with all outfits, click Next to proceed to expression generation.
             # Manual mode - no sliders, just buttons
             tk.Label(
                 card,
-                text="Manual mode",
+                text="Manual mode — use 'Remove BG' on the next\n"
+                     "step to clean up this outfit's background.",
                 bg=CARD_BG,
-                fg=TEXT_SECONDARY,
+                fg=WARNING_TEXT,
                 font=("", 8),
+                justify="left",
             ).pack(pady=(1, 0))
 
             # Placeholders for vars (to keep index alignment) - restore previous values to preserve settings

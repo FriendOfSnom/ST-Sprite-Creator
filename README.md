@@ -9,11 +9,13 @@ AI-powered character sprite generator for Student Transfer, using Google Gemini.
 - **Three creation modes**: Reference image, text prompt, or character fusion
 - **Multiple outfits**: Casual, formal, athletic, swimsuit, uniform (custom too)
 - **Expression generation**: Neutral, happy, sad, angry, surprised, and custom expressions
-- **Automatic background removal** with manual touch-up tools
+- **Automatic background removal** with alpha matting and manual touch-up tools
+- **Configurable background color** for generation (default black)
 - **Add to existing characters**: Add new outfits or expressions to previously created characters
-- **Scale comparison** with 77 reference sprites for accurate in-game sizing
+- **Scale & height crop** with 77 reference sprites for accurate in-game sizing
 - **Expression sheet generation** for visual reference
 - **Sprite Tester** to preview characters in a simulated Ren'Py environment
+- **Sprite database** upload and download community-created characters
 
 ---
 
@@ -59,20 +61,21 @@ python -m sprite_creator
 The full character creation wizard. Walks you through every step:
 
 1. **Source Selection** - Upload an image, describe a character, or fuse two together
-2. **Character Setup** - Set name, voice, archetype; crop and normalize the base image
-3. **Generation Options** - Pick outfits and expressions to generate
-4. **Review** - Confirm selections before generation begins
-5. **Outfit Review** - Review generated outfits, adjust background removal, regenerate
-6. **Expression Review** - Review expressions, touch up backgrounds
-7. **Eye Line & Color** - Set eye position and pick name color
-8. **Scale** - Compare with reference sprites for in-game sizing
-9. **Complete** - View summary and open character folder
+2. **Character Setup** - Set name, voice, archetype; crop and normalize the character image
+3. **Sprite Settings** - Set hair length, body type, and background color
+4. **Generation Options** - Pick outfits and expressions to generate
+5. **Review** - Confirm selections before generation begins
+6. **Outfit Review** - Review generated outfits, adjust background removal, regenerate
+7. **Expression Review** - Review expressions, touch up backgrounds
+8. **Eye Line & Color** - Set eye position and pick name color
+9. **Scale & Height** - Compare with reference sprites, adjust scale and height crop
+10. **Complete** - View summary, upload to database, or open character folder
 
 ### Add to Character
 
 Add new outfits or expressions to an existing character folder:
 
-- Select a base sprite from the character's existing images
+- Select a sprite from the character's existing images
 - Normalize it to match AI output resolution
 - Generate new outfits that match the existing character's style
 - Add missing expressions or replace existing ones that came out poorly
@@ -99,7 +102,7 @@ Preview character sprites in a simulated Ren'Py environment. Test outfit switchi
 character_name/
   character.yml             Metadata (voice, scale, eye line, colors)
   How-To-Use.txt            Instructions for using with Student Transfer
-  base.png                  Original base image for reference
+  original.png              Original character image for reference
   a/                        Pose A (first outfit)
     outfits/
       0.png                 Outfit image
@@ -127,11 +130,12 @@ Use the **Clear Backups** button on the launcher to free disk space. Note that c
 
 ## Tips
 
-- Every wizard step has a **?** help button with detailed instructions
+- Every wizard step has a **?** help button and a tip bar with quick instructions
 - Use the **ST Style** toggle to match Student Transfer art style, or disable it for any art style
-- If Gemini's safety filters block a generation, the wizard skips it and continues
+- If Gemini's safety filters block a generation, the wizard shows a warning and continues
 - You can regenerate individual outfits and expressions without starting over
 - **View API Usage** on the launcher opens Google AI Studio's usage dashboard
+- Change the **background color** in Sprite Settings if black doesn't work for your character
 
 ---
 
@@ -160,7 +164,7 @@ Use the **Clear Backups** button on the launcher to free disk space. Note that c
 ### Next button is disabled
 
 - **Character Setup**: Fill in Voice, Name, and Archetype, then accept your selection
-- **Add to Character**: Normalize and accept the base sprite first
+- **Add to Character**: Normalize and accept the character sprite first
 - **Review**: Check the acknowledgment box if a warning is shown
 - **Expression Review**: Navigate through all outfits before continuing
 

@@ -48,11 +48,16 @@ Step-by-Step Setup:
 1. Go to console.cloud.google.com
 2. Sign in or create a Google account
 3. New accounts automatically get $300 in free trial credits
-4. Create a new project (or use default)
-5. Search for "Generative Language API" and enable it
-6. Go to "APIs & Services" > "Credentials"
-7. Click "Create Credentials" > "API Key"
-8. Copy the key and paste it here
+4. IMPORTANT: Enable billing on your project!
+   Go to Billing > Link a billing account.
+   You won't be charged (the $300 credits cover usage),
+   but billing MUST be enabled or the API quota will be
+   too low for sprite generation.
+5. Create a new project (or use default)
+6. Search for "Generative Language API" and enable it
+7. Go to "APIs & Services" > "Credentials"
+8. Click "Create Credentials" > "API Key"
+9. Copy the key and paste it here
 
 Why Google Cloud Instead of AI Studio?
 - AI Studio's free tier has very strict rate limits
@@ -224,9 +229,10 @@ class APISetupWindow:
 
         # Description
         desc_text = (
-            "You need a Google Cloud API key (not AI Studio free tier).\n"
+            "You need a Google Cloud API key with billing enabled.\n"
             "New Google Cloud accounts get $300 in free credits.\n"
-            "Click the ? button for setup instructions."
+            "The free tier does NOT have enough quota for sprite generation.\n"
+            "Click the ? button for full setup instructions."
         )
         desc_label = tk.Label(
             main_frame,
@@ -312,6 +318,25 @@ class APISetupWindow:
             font=SMALL_FONT,
         )
         self._status_label.pack(anchor="w", pady=(0, 20))
+
+        # Billing reminder
+        billing_text = (
+            "IMPORTANT: You must enable billing on your Google Cloud project.\n"
+            "Go to console.cloud.google.com > Billing > Link a billing account.\n"
+            "You won't be charged — the $300 free credits cover usage."
+        )
+        billing_label = tk.Label(
+            main_frame,
+            text=billing_text,
+            bg=CARD_BG,
+            fg=WARNING_TEXT,
+            font=SMALL_FONT,
+            justify="left",
+            wraplength=400,
+            padx=10,
+            pady=8,
+        )
+        billing_label.pack(fill="x", pady=(0, 12))
 
         # Tip text
         tip_text = (

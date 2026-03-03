@@ -858,7 +858,7 @@ def build_standard_school_uniform_prompt(
         f"Edit the {archetype}'s clothes so our {archetype} is wearing {uniform_desc}. "
         "Don't change the size, proportions, framing, art style, or age of the character. "
         f"{hair_instruction}"
-        "Give the character a black background behind them. "
+        f"Give the character a {background_color.split('(')[0].strip()} background behind them. "
         "Make sure the head, arms, hair, hands, and clothes are all kept within the image."
     )
 
@@ -893,44 +893,51 @@ def build_prompt_for_idea(concept: str, archetype_label: str, gender_style: str,
     )
 
 
-def build_normalize_image_prompt() -> str:
+def build_normalize_image_prompt(background_color: str = "black (#000000)") -> str:
     """
-    Prompt to normalize an uploaded image (sharpen, black background).
+    Prompt to normalize an uploaded image (sharpen, add background).
 
     Used in image mode to clean up the source image before further processing.
+
+    Args:
+        background_color: Background color string, e.g. "black (#000000)".
 
     Returns:
         Prompt string for image normalization.
     """
+    bg = background_color.split("(")[0].strip()
     return (
         "Sharpen the image to at least 720p resolution if it is lower than that and "
         "correct any artifacts of blurriness. Don't change the size, proportions, "
-        "framing, or art style of the character. Give the character a black (#000000) "
+        f"framing, or art style of the character. Give the character a {bg} "
         "background behind them. Make sure the head, arms, hair, hands, and clothes "
         "are all kept within the image."
     )
 
 
-def build_normalize_existing_character_prompt() -> str:
+def build_normalize_existing_character_prompt(background_color: str = "black (#000000)") -> str:
     """
     Prompt to normalize an existing character image.
 
     Used in add-to-character mode where the character is already established.
-    Same as build_normalize_image_prompt().
+
+    Args:
+        background_color: Background color string, e.g. "black (#000000)".
 
     Returns:
         Prompt string for existing character normalization.
     """
+    bg = background_color.split("(")[0].strip()
     return (
         "Sharpen the image to at least 720p resolution if it is lower than that and "
         "correct any artifacts of blurriness. Don't change the size, proportions, "
-        "framing, or art style of the character. Give the character a black (#000000) "
+        f"framing, or art style of the character. Give the character a {bg} "
         "background behind them. Make sure the head, arms, hair, hands, and clothes "
         "are all kept within the image."
     )
 
 
-def build_character_modification_prompt(user_instructions: str) -> str:
+def build_character_modification_prompt(user_instructions: str, background_color: str = "black (#000000)") -> str:
     """
     Prompt to modify a character based on user instructions.
 
@@ -947,12 +954,12 @@ def build_character_modification_prompt(user_instructions: str) -> str:
         f"Modify this character based on the following instructions: {user_instructions} "
         "Maintain the same art style, proportions, and overall character design. Apply "
         "the requested changes while keeping the character recognizable. Give the "
-        "character a black (#000000) background behind them. Make sure the head, arms, "
+        f"character a {background_color.split('(')[0].strip()} background behind them. Make sure the head, arms, "
         "hair, hands, and clothes are all kept within the image."
     )
 
 
-def build_fusion_prompt(archetype_label: str, gender_style: str, hair_length: str = "") -> str:
+def build_fusion_prompt(archetype_label: str, gender_style: str, hair_length: str = "", background_color: str = "black (#000000)") -> str:
     """
     Prompt to create a fused character from two source images.
 
@@ -982,7 +989,7 @@ def build_fusion_prompt(archetype_label: str, gender_style: str, hair_length: st
         f"- Body proportions should balance out while still looking like a completely new {archetype_phrase} "
         "Match the art style of the input images so the new character has the same artist, vibrant colors, and overall styling. "
         "Have the new character facing mostly toward the viewer in a friendly, neutral pose. "
-        "Give the character a black (#000000) background behind them. "
+        f"Give the character a {background_color.split('(')[0].strip()} background behind them. "
         "Make sure the head, arms, hair, hands, and clothes are all kept within the image."
     )
 

@@ -99,7 +99,7 @@ def pick_representative_outfit(char_dir: Path) -> Path:
     Choose a full-body outfit image to use for eye-line and scale selection.
 
     Preference:
-        a/outfits/Base|Formal|Casual.(webp|png)
+        a/outfits/Original|Base|Formal|Casual.(webp|png)
     Fallback:
         a/base.* or any image under char_dir.
 
@@ -115,9 +115,11 @@ def pick_representative_outfit(char_dir: Path) -> Path:
     a_dir = char_dir / "a"
     outfits_dir = a_dir / "outfits"
     preferred_names = [
+        "original.webp", "original.png",
         "base.webp", "formal.webp", "casual.webp",
         "base.png", "formal.png", "casual.png",
         # Legacy capitalized names (characters created before v1.2.1)
+        "Original.webp", "Original.png",
         "Base.webp", "Formal.webp", "Casual.webp",
         "Base.png", "Formal.png", "Casual.png",
     ]

@@ -37,6 +37,10 @@ class ReviewStep(WizardStep):
     STEP_ID = "review"
     STEP_TITLE = "Review"
     STEP_NUMBER = 5
+    STEP_TIP = (
+        "Final check before generation begins. Verify the character looks "
+        "correct, then click Next to start generating outfits."
+    )
     STEP_HELP = """Review Before Generation
 
 This is your final check before the AI starts generating images.
@@ -77,6 +81,8 @@ Click Accept when ready to begin generation."""
             fg=TEXT_COLOR,
             font=PAGE_TITLE_FONT,
         ).pack(pady=(0, 8))
+
+        self._build_tip_bar(parent)
 
         # Centered image frame
         self._preview_frame = tk.Frame(parent, bg=CARD_BG, padx=4, pady=4)

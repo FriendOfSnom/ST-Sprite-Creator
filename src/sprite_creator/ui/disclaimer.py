@@ -141,7 +141,41 @@ class DisclaimerWindow:
         help_btn = create_help_button(header_frame, "About This Disclaimer", DISCLAIMER_HELP_TEXT)
         help_btn.pack(side="right")
 
-        # Scrollable text area
+        # Buttons (pack at bottom FIRST so they always have space on small screens)
+        button_frame = tk.Frame(main_frame, bg=BG_COLOR)
+        button_frame.pack(fill="x", side="bottom")
+
+        self._accept_btn = create_primary_button(
+            button_frame,
+            "Accept & Continue",
+            self._on_accept,
+            width=18,
+        )
+        self._accept_btn.pack(side="right", padx=(10, 0))
+        self._accept_btn.configure(state="disabled")  # Disabled until checkbox checked
+
+        decline_btn = create_secondary_button(
+            button_frame,
+            "Decline",
+            self._on_decline,
+            width=12,
+        )
+        decline_btn.pack(side="right")
+
+        # Checkbox (pack at bottom, above buttons)
+        checkbox_frame = tk.Frame(main_frame, bg=BG_COLOR)
+        checkbox_frame.pack(fill="x", side="bottom", pady=(0, 20))
+
+        checkbox = ttk.Checkbutton(
+            checkbox_frame,
+            text="I am 18+ years old, all characters I create are 18+, and I agree to these terms",
+            variable=self._checkbox_var,
+            style="Dark.TCheckbutton",
+            command=self._on_checkbox_change,
+        )
+        checkbox.pack(anchor="w")
+
+        # Scrollable text area (fills remaining space between header and checkbox)
         text_frame = tk.Frame(main_frame, bg=BG_COLOR)
         text_frame.pack(fill="both", expand=True, pady=(0, 16))
 
@@ -166,40 +200,6 @@ class DisclaimerWindow:
 
         text_widget.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
-
-        # Checkbox
-        checkbox_frame = tk.Frame(main_frame, bg=BG_COLOR)
-        checkbox_frame.pack(fill="x", pady=(0, 20))
-
-        checkbox = ttk.Checkbutton(
-            checkbox_frame,
-            text="I am 18+ years old, all characters I create are 18+, and I agree to these terms",
-            variable=self._checkbox_var,
-            style="Dark.TCheckbutton",
-            command=self._on_checkbox_change,
-        )
-        checkbox.pack(anchor="w")
-
-        # Buttons
-        button_frame = tk.Frame(main_frame, bg=BG_COLOR)
-        button_frame.pack(fill="x")
-
-        self._accept_btn = create_primary_button(
-            button_frame,
-            "Accept & Continue",
-            self._on_accept,
-            width=18,
-        )
-        self._accept_btn.pack(side="right", padx=(10, 0))
-        self._accept_btn.configure(state="disabled")  # Disabled until checkbox checked
-
-        decline_btn = create_secondary_button(
-            button_frame,
-            "Decline",
-            self._on_decline,
-            width=12,
-        )
-        decline_btn.pack(side="right")
 
     def _on_checkbox_change(self):
         """Handle checkbox state change."""

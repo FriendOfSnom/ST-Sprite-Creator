@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Tuple
 # APPLICATION INFO
 # ═══════════════════════════════════════════════════════════════════════════════
 APP_NAME = "ST Sprite Creator"
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.3.0"
 
 
 def get_resource_path(relative_path: str = "") -> Path:
@@ -167,6 +167,56 @@ def save_upload_username(username: str) -> None:
         json.dump(config, f, indent=2)
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# BACKGROUND COLOR
+# ═══════════════════════════════════════════════════════════════════════════════
+
+DEFAULT_BACKGROUND_COLOR = "black (#000000)"
+
+# Preset options for the settings dialog
+BACKGROUND_COLOR_PRESETS = [
+    "black (#000000)",
+    "light grey (#C0C0C0)",
+    "lime green (#00FF00)",
+    "white (#FFFFFF)",
+]
+
+
+def load_background_color() -> str:
+    """Load the saved background color from config file.
+
+    Returns:
+        The saved color string (e.g. 'light grey (#C0C0C0)'), or default if not set.
+    """
+    import json
+    if not CONFIG_PATH.exists():
+        return DEFAULT_BACKGROUND_COLOR
+    try:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+            config = json.load(f)
+        return config.get("background_color", DEFAULT_BACKGROUND_COLOR)
+    except (json.JSONDecodeError, IOError):
+        return DEFAULT_BACKGROUND_COLOR
+
+
+def save_background_color(color: str) -> None:
+    """Save the background color to config file."""
+    import json
+    config = {}
+    if CONFIG_PATH.exists():
+        try:
+            with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                config = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
+
+    config["background_color"] = color
+
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=2)
+
+
 # Gemini API constants
 GEMINI_IMAGE_MODEL = "gemini-2.5-flash-image"
 GEMINI_API_URL = (
@@ -241,7 +291,7 @@ CARD_PADDING = 16
 CARD_RADIUS = 8  # For styling reference (tkinter doesn't support border-radius natively)
 
 # Outfit keys:
-# Base is always included by the pipeline, but you can choose which additional
+# Original is always included by the pipeline, but you can choose which additional
 # outfits to generate. These keys should match outfit_key values in the CSV.
 ALL_OUTFIT_KEYS: List[str] = ["formal", "casual", "uniform", "athletic", "swimsuit", "underwear"]
 

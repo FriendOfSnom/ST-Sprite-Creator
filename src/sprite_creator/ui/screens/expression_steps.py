@@ -37,6 +37,7 @@ from ..tk_common import (
     show_error_dialog,
 )
 from .base import WizardStep, WizardState
+from ...api.exceptions import GeminiSafetyError
 from ...logging_utils import log_info, log_error, log_generation_start, log_generation_complete
 
 
@@ -51,6 +52,12 @@ class ExpressionReviewStep(WizardStep):
     STEP_ID = "expression_review"
     STEP_TITLE = "Expressions"
     STEP_NUMBER = 7
+    STEP_TIP = (
+        "\u2022 Use < Prev / Next > to view each outfit's expressions. "
+        "You must view ALL outfits before the main Next button enables.\n"
+        "\u2022 Click 'Remove BG' on any expression to open the click-to-remove editor.\n"
+        "\u2022 Click 'Regen' to regenerate any expression you don't like (except expression 0)."
+    )
     STEP_HELP = """Expression Review
 
 This step shows all generated expressions for each outfit.
@@ -236,17 +243,7 @@ When adding expressions to existing outfits:
         )
         self._next_outfit_btn.pack(side="right", padx=(10, 20))
 
-        # Inline tip
-        tk.Label(
-            parent,
-            text="💡 Use 'Remove BG' button to fix background issues on any expression. "
-                 "You must view ALL outfits before proceeding.",
-            bg=BG_COLOR,
-            fg=WARNING_TEXT,
-            font=SMALL_FONT,
-            wraplength=800,
-            justify="left",
-        ).pack(fill="x", pady=(0, 8))
+        self._build_tip_bar(parent)
 
         # Scrollable canvas for expression cards (horizontal like outfits)
         canvas_frame = tk.Frame(parent, bg=BG_COLOR)
@@ -467,7 +464,7 @@ When adding expressions to existing outfits:
         else:
             # Fallback for backwards compatibility (shouldn't happen in normal flow)
             if self.state.use_base_as_outfit:
-                names.append("base")
+                names.append("original")
             names.extend(self.state.selected_outfits)
 
         # In add-to-existing mode, also include existing outfits being extended
@@ -527,7 +524,7 @@ When adding expressions to existing outfits:
         else:
             names = []
             if self.state.use_base_as_outfit:
-                names.append("base")
+                names.append("original")
             names.extend(self.state.selected_outfits)
         # Include existing outfits in add-to-existing mode
         if self.state.is_adding_to_existing and self.state.existing_outfits_to_extend:
@@ -669,7 +666,7 @@ When adding expressions to existing outfits:
         else:
             new_outfit_names = []
             if self.state.use_base_as_outfit:
-                new_outfit_names.append("base")
+                new_outfit_names.append("original")
             new_outfit_names.extend(self.state.selected_outfits)
 
         if self._current_outfit_idx >= len(new_outfit_names):
@@ -723,6 +720,14 @@ When adding expressions to existing outfits:
             try:
                 expr_paths, cleanup_dict = self._do_expression_generation(outfit_name, update_expression_progress)
                 self.schedule_callback(lambda n=outfit_name, p=expr_paths, c=cleanup_dict: self._on_outfit_expressions_complete(n, p, c))
+            except GeminiSafetyError:
+                safety_msg = (
+                    "Gemini blocked this content due to safety filters.\n\n"
+                    "This usually happens with revealing clothing, suggestive "
+                    "poses, or nudity. Try using a more conservatively dressed "
+                    "character image."
+                )
+                self.schedule_callback(lambda msg=safety_msg: self._on_generation_error(msg))
             except Exception as e:
                 error_msg = str(e)
                 self.schedule_callback(lambda msg=error_msg: self._on_generation_error(msg))
@@ -1724,7 +1729,7 @@ When adding expressions to existing outfits:
             pose_letter = "a"
         pose_dir = self.state.character_folder / pose_letter
         outfit_stem = outfit_path.stem
-        if outfit_stem.lower() == "base":
+        if outfit_stem.lower() == "original":
             out_dir = pose_dir / "faces" / "face"
         else:
             out_dir = pose_dir / "faces" / outfit_stem

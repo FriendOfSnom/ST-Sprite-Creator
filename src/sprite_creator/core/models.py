@@ -68,7 +68,7 @@ class WizardState:
     # Step 6-7: Base generation
     base_pose_path: Optional[Path] = None
     original_base_bytes: Optional[bytes] = None  # For reset functionality
-    use_base_as_outfit: bool = True
+    use_base_as_outfit: bool = True  # Whether to include the original image as the "Original" outfit
     base_has_been_regenerated: bool = False
     base_regen_instructions: str = ""
 
@@ -97,6 +97,7 @@ class WizardState:
     name_color: Optional[str] = None
     scale_factor: float = 1.0
     apply_scale_to_images: bool = True  # If True, resize all images and set scale to 1.0 (default: ON)
+    image_height: Optional[int] = None  # If set, crops sprite display in-game to this many pixels from top
 
     # === Output ===
     output_root: Optional[Path] = None

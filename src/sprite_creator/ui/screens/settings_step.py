@@ -21,6 +21,7 @@ from ...config import (
     TEXT_COLOR,
     TEXT_SECONDARY,
     ACCENT_COLOR,
+    DANGER_COLOR,
     WARNING_TEXT,
     PAGE_TITLE_FONT,
     SECTION_FONT,
@@ -32,6 +33,7 @@ from ..tk_common import (
 )
 from ..dialogs import load_name_pool, pick_random_name
 from .base import WizardStep, WizardState
+from ...api.exceptions import GeminiSafetyError
 from ...logging_utils import log_info, log_error
 
 
@@ -41,6 +43,10 @@ class SettingsStep(WizardStep):
     STEP_ID = "settings"
     STEP_TITLE = "Settings"
     STEP_NUMBER = 2
+    STEP_TIP = (
+        "Set the character's voice, name, and body type. "
+        "Hair length controls how hair is styled in generated outfits."
+    )
     STEP_HELP = """Character Settings
 
 This step configures your character's basic information.
@@ -73,7 +79,7 @@ This tells the AI what length to style the hair at for each new outfit.
 The base character keeps whatever hair the AI originally generates.
 
 Click Next when all fields are filled. For image mode, this will also
-normalize your image (sharpen resolution, add black background).
+normalize your image (sharpen resolution, add solid background).
 
 ADD-TO-EXISTING MODE
 When adding content to an existing character:
@@ -107,6 +113,7 @@ For characters NOT created by Sprite Creator:
         # For normalization
         self._is_normalizing: bool = False
         self._normalized_image: Optional[Image.Image] = None
+        self._normalization_failed: bool = False
 
         # Load name pools
         self._girl_names, self._boy_names = load_name_pool(NAMES_CSV_PATH)
@@ -125,7 +132,9 @@ For characters NOT created by Sprite Creator:
             bg=BG_COLOR,
             fg=TEXT_COLOR,
             font=PAGE_TITLE_FONT,
-        ).pack(pady=(0, 24))
+        ).pack(pady=(0, 8))
+
+        self._build_tip_bar(parent)
 
         # Center container for form
         center_frame = tk.Frame(parent, bg=BG_COLOR)
@@ -425,6 +434,7 @@ For characters NOT created by Sprite Creator:
         # Clear cached normalization so it re-runs when the user advances forward.
         # This handles the case where the user went back to change settings.
         self._normalized_image = None
+        self._normalization_failed = False
         self.state.normalized_image = None
 
         # Check if character was created by this app (has archetype in character.yml)
@@ -511,8 +521,8 @@ For characters NOT created by Sprite Creator:
         # (Skip for add-to-existing mode - we use existing images)
         if self.state.source_mode == "image" and self.state.image_path and not self.state.is_adding_to_existing:
             if not self._is_normalizing:
-                if self._normalized_image is not None:
-                    # Just finished normalizing — allow advancement
+                if self._normalized_image is not None or getattr(self, '_normalization_failed', False):
+                    # Already normalized or failed — allow advancement
                     pass
                 else:
                     # No normalization yet (first time or re-entry) — start it
@@ -550,7 +560,8 @@ For characters NOT created by Sprite Creator:
             image_b64 = load_image_as_base64(self.state.image_path)
 
             # Build normalization prompt
-            prompt = build_normalize_image_prompt()
+            from ...config import load_background_color
+            prompt = build_normalize_image_prompt(background_color=load_background_color())
 
             # Call Gemini to normalize
             result_bytes = call_gemini_image_edit(
@@ -570,6 +581,14 @@ For characters NOT created by Sprite Creator:
             else:
                 self.schedule_callback(lambda: self._on_normalization_error("No image returned"))
 
+        except GeminiSafetyError:
+            safety_msg = (
+                "Gemini blocked this image due to safety filters.\n\n"
+                "This usually happens with revealing clothing, suggestive "
+                "poses, or nudity. Try a more conservatively dressed image."
+            )
+            log_error(f"Normalization blocked by safety filters")
+            self.schedule_callback(lambda: self._on_normalization_safety_error(safety_msg))
         except Exception as e:
             error_msg = str(e)
             log_error(f"Normalization failed: {error_msg}")
@@ -589,11 +608,51 @@ For characters NOT created by Sprite Creator:
         """Handle normalization error - continue anyway with original image."""
         self._is_normalizing = False
         self.hide_loading()
-        self._status_label.configure(text=f"Normalization skipped: {error[:40]}...", fg=WARNING_TEXT)
         log_error(f"Normalization failed, continuing with original: {error}")
 
         # Set normalized_image to None so SetupStep falls back to original
         self.state.normalized_image = None
 
-        # Continue to next step anyway
-        self.wizard.go_next()
+        # Mark normalization as attempted so validate() doesn't re-trigger it
+        # (self._normalized_image must be non-None to prevent infinite retry loop)
+        self._normalization_failed = True
+
+        # Check if this is a quota/billing error
+        is_quota_error = "quota" in error.lower() or "429" in error
+        if is_quota_error:
+            from tkinter import messagebox
+            messagebox.showerror(
+                "API Quota Exceeded",
+                "Your API key has exceeded its quota. This usually means "
+                "you're using a free-tier key without billing enabled.\n\n"
+                "To fix this:\n"
+                "1. Go to console.cloud.google.com\n"
+                "2. Select your project\n"
+                "3. Go to Billing and link a billing account\n"
+                "4. New accounts get $300 in free credits\n\n"
+                "You can update your API key from the launcher's "
+                "\"API Settings\" button.",
+                parent=self.wizard.root,
+            )
+            self._status_label.configure(
+                text="API quota exceeded — enable billing or change API key", fg=DANGER_COLOR)
+        else:
+            self._status_label.configure(
+                text=f"Normalization skipped: {error[:40]}...", fg=WARNING_TEXT)
+            # Continue to next step for non-quota errors
+            self.wizard.go_next()
+
+    def _on_normalization_safety_error(self, message: str) -> None:
+        """Handle safety filter error during normalization — do NOT auto-continue."""
+        self._is_normalizing = False
+        self.hide_loading()
+        self.state.normalized_image = None
+        self._normalization_failed = True
+
+        messagebox.showerror(
+            "Safety Filter Blocked",
+            message,
+            parent=self.wizard.root,
+        )
+        self._status_label.configure(
+            text="Image blocked by safety filters — try a different image", fg=DANGER_COLOR)

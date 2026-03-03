@@ -481,6 +481,10 @@ class FullWizard:
         self._update_help_button()
         self._update_nav_buttons()
 
+        # Deferred scroll region update: on_enter() may resize child canvases,
+        # and the scroll region needs recalculating after layout settles.
+        self.root.after(50, self._on_content_configure)
+
     def go_next(self) -> None:
         """Navigate to the next step if validation passes."""
         step = self.current_step

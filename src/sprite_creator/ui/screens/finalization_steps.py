@@ -74,6 +74,10 @@ class EyeLineStep(WizardStep):
     STEP_ID = "eye_line"
     STEP_TITLE = "Finalize"
     STEP_NUMBER = 8
+    STEP_TIP = (
+        "Two clicks needed: first click the character's eyes to set the eye line, "
+        "then click the hair to pick the name color."
+    )
     STEP_HELP = """Eye Line & Name Color
 
 This step sets two values used by visual novel engines.
@@ -141,6 +145,8 @@ If you need to redo:
             fg=TEXT_COLOR,
             font=PAGE_TITLE_FONT,
         ).pack(pady=(0, 8))
+
+        self._build_tip_bar(parent)
 
         # Instructions
         self._instruction_label = tk.Label(
@@ -385,6 +391,10 @@ class ScaleStep(WizardStep):
     STEP_ID = "scale"
     STEP_TITLE = "Scale"
     STEP_NUMBER = 9
+    STEP_TIP = (
+        "Compare your character side-by-side with a reference sprite "
+        "and adjust the scale slider until they match in height."
+    )
     STEP_HELP = """Character Scale
 
 This step sets how large your character appears in-game.
@@ -473,14 +483,7 @@ Click Next when the scale looks right."""
             font=PAGE_TITLE_FONT,
         ).pack(pady=(0, 8))
 
-        # Instructions
-        tk.Label(
-            parent,
-            text="1) Choose a reference (left). 2) Adjust your scale (right). 3) Click Next when done.",
-            bg=BG_COLOR,
-            fg=TEXT_SECONDARY,
-            font=SMALL_FONT,
-        ).pack(pady=(0, 12))
+        self._build_tip_bar(parent)
 
         # Reference selector (hidden in add-to-existing mode)
         self._ref_selector_frame = tk.Frame(parent, bg=BG_COLOR)
@@ -593,9 +596,10 @@ Click Next when the scale looks right."""
             bg=BG_COLOR,
             fg=TEXT_COLOR,
             highlightthickness=0,
-            command=lambda _: self._redraw(),
+            command=lambda _: self._update_slider_labels(),
         )
         self._scale_slider.pack(side="left", fill="x", expand=True)
+        self._scale_slider.bind("<ButtonRelease-1>", lambda _: self._redraw())
 
         # Scale value label
         self._scale_label = tk.Label(
@@ -607,6 +611,45 @@ Click Next when the scale looks right."""
             width=6,
         )
         self._scale_label.pack(side="left", padx=(8, 0))
+
+        # Height crop slider (sets image_height in character.yml for in-game cropping)
+        self._height_var = tk.IntVar(value=1000)
+        height_frame = tk.Frame(parent, bg=BG_COLOR)
+        height_frame.pack(fill="x", pady=(4, 0))
+
+        tk.Label(
+            height_frame,
+            text="Height:",
+            bg=BG_COLOR,
+            fg=TEXT_COLOR,
+            font=BODY_FONT,
+        ).pack(side="left", padx=(0, 8))
+
+        self._height_slider = tk.Scale(
+            height_frame,
+            from_=100,
+            to=2000,
+            resolution=1,
+            orient=tk.HORIZONTAL,
+            variable=self._height_var,
+            length=400,
+            bg=BG_COLOR,
+            fg=TEXT_COLOR,
+            highlightthickness=0,
+            command=lambda _: self._update_slider_labels(),
+        )
+        self._height_slider.pack(side="left", fill="x", expand=True)
+        self._height_slider.bind("<ButtonRelease-1>", lambda _: self._redraw())
+
+        self._height_label = tk.Label(
+            height_frame,
+            text="1000",
+            bg=BG_COLOR,
+            fg=ACCENT_COLOR,
+            font=BODY_FONT,
+            width=6,
+        )
+        self._height_label.pack(side="left", padx=(8, 0))
 
         # Apply scale to images checkbox - DEFAULT TO TRUE (scaling on by default)
         # NOTE: Checkbox is hidden - scaling is ALWAYS mandatory for all modes
@@ -640,9 +683,14 @@ Click Next when the scale looks right."""
         """Load references and user image when step becomes active."""
         # Handle add-to-existing mode differently
         if self.state.is_adding_to_existing:
+            self._update_tip(
+                "Match your new outfits to the existing character's scale. "
+                "The slider auto-calculates from the existing sprite on the left."
+            )
             self._setup_add_to_existing_mode()
             return
 
+        self._update_tip(self.STEP_TIP)
         # Normal mode: show both reference selector and expression selector
         self._ref_selector_frame.pack(pady=(0, 8))
         self._new_expr_selector_frame.pack(pady=(0, 8))
@@ -718,6 +766,18 @@ Click Next when the scale looks right."""
         # Restore previous scale
         if self.state.scale_factor:
             self._scale_var.set(self.state.scale_factor)
+
+        # Initialize height slider based on user image
+        if self._user_img:
+            img_h = self._user_img.height
+            self._height_slider.configure(to=img_h)
+            if self.state.image_height and self.state.image_height <= img_h:
+                self._height_var.set(self.state.image_height)
+            else:
+                self._height_var.set(img_h)
+        else:
+            self._height_slider.configure(to=2000)
+            self._height_var.set(2000)
 
         # Scaling is always mandatory - always force True
         # (checkbox is hidden but backend var must be True)
@@ -841,9 +901,11 @@ Click Next when the scale looks right."""
                 except Exception:
                     pass
 
-        # Last resort: base.png from character root
+        # Last resort: original.png (or legacy base.png) from character root
         if not self._existing_ref_img:
-            base_path = char_folder / "base.png"
+            base_path = char_folder / "original.png"
+            if not base_path.exists():
+                base_path = char_folder / "base.png"  # Legacy fallback
             if base_path.exists():
                 try:
                     self._existing_ref_img = Image.open(base_path).convert("RGBA")
@@ -987,6 +1049,11 @@ Click Next when the scale looks right."""
         self._ref_var.set(name)
         self._redraw()
 
+    def _update_slider_labels(self) -> None:
+        """Update scale/height labels without redrawing canvases (called while dragging)."""
+        self._scale_label.configure(text=f"{self._scale_var.get():.2f}")
+        self._height_label.configure(text=str(self._height_var.get()))
+
     def _redraw(self, *args) -> None:
         """Redraw both canvases."""
         self._ref_canvas.delete("all")
@@ -994,6 +1061,10 @@ Click Next when the scale looks right."""
 
         current_scale = self._scale_var.get()
         self._scale_label.configure(text=f"{current_scale:.2f}")
+
+        # Update height label
+        height_val = self._height_var.get()
+        self._height_label.configure(text=str(height_val))
 
         # Get reference
         ref_name = self._ref_var.get()
@@ -1008,9 +1079,16 @@ Click Next when the scale looks right."""
         r_engine_w = rimg.width * r_scale
         r_engine_h = rimg.height * r_scale
 
+        # Apply height crop to user image (top N pixels only)
+        u_img_cropped = None
         if self._user_img:
-            u_engine_w = self._user_img.width * current_scale
-            u_engine_h = self._user_img.height * current_scale
+            effective_h = min(height_val, self._user_img.height)
+            if effective_h < self._user_img.height:
+                u_img_cropped = self._user_img.crop((0, 0, self._user_img.width, effective_h))
+            else:
+                u_img_cropped = self._user_img
+            u_engine_w = u_img_cropped.width * current_scale
+            u_engine_h = u_img_cropped.height * current_scale
         else:
             u_engine_w = u_engine_h = 0
 
@@ -1030,11 +1108,11 @@ Click Next when the scale looks right."""
             image=self._img_refs["ref"]
         )
 
-        # Draw user
-        if self._user_img:
+        # Draw user (with height crop applied)
+        if u_img_cropped:
             u_disp_w = max(1, int(u_engine_w * view_scale))
             u_disp_h = max(1, int(u_engine_h * view_scale))
-            u_resized = self._user_img.resize((u_disp_w, u_disp_h), Image.LANCZOS)
+            u_resized = u_img_cropped.resize((u_disp_w, u_disp_h), Image.LANCZOS)
             self._img_refs["usr"] = ImageTk.PhotoImage(u_resized)
             self._user_canvas.create_image(
                 self._canv_w // 2, self._canv_h,
@@ -1044,10 +1122,17 @@ Click Next when the scale looks right."""
 
             # Draw eye line across BOTH canvases if available
             # This helps compare eye levels between reference and user character
-            if self.state.eye_line_ratio is not None:
-                img_top = self._canv_h - u_disp_h
-                y_inside = int(u_disp_h * self.state.eye_line_ratio)
-                y_canvas = img_top + y_inside
+            if self.state.eye_line_ratio is not None and self._user_img:
+                # eye_line_ratio is relative to the FULL image height.
+                # When height slider crops the image, convert to cropped coordinates.
+                full_h = self._user_img.height
+                eye_pixel = self.state.eye_line_ratio * full_h
+                cropped_h = u_img_cropped.height if u_img_cropped else full_h
+                # Only draw if the eye line is within the cropped region
+                if eye_pixel <= cropped_h:
+                    img_top = self._canv_h - u_disp_h
+                    y_inside = int(u_disp_h * (eye_pixel / cropped_h))
+                    y_canvas = img_top + y_inside
                 # Draw on user canvas (right)
                 self._user_canvas.create_line(
                     0, y_canvas, self._canv_w, y_canvas,
@@ -1066,6 +1151,17 @@ Click Next when the scale looks right."""
         log_info(f"ScaleStep.validate(): scale_factor={scale_val}, apply_scale_to_images={apply_val}")
         self.state.scale_factor = scale_val
         self.state.apply_scale_to_images = apply_val
+
+        # Save image_height only if user cropped (height < full image height)
+        # image_height must be scaled to match in-game dimensions (scale is applied to the image first)
+        height_val = int(self._height_var.get())
+        if hasattr(self, "_user_img") and self._user_img and height_val < self._user_img.height:
+            scaled_height = int(height_val * scale_val)
+            self.state.image_height = scaled_height
+            log_info(f"ScaleStep.validate(): image_height={scaled_height} (raw={height_val} * scale={scale_val:.2f})")
+        else:
+            self.state.image_height = None
+
         return True
 
 
@@ -1079,6 +1175,10 @@ class SummaryStep(WizardStep):
     STEP_ID = "summary"
     STEP_TITLE = "Complete"
     STEP_NUMBER = 10
+    STEP_TIP = (
+        "All done! Use the buttons below to open the output folder, "
+        "preview in-game, or upload to the sprite database."
+    )
     STEP_HELP = """Character Complete!
 
 Your character has been created and all files are saved.
@@ -1157,6 +1257,8 @@ Click Finish to close the wizard."""
             fg=ACCENT_COLOR,
             font=PAGE_TITLE_FONT,
         ).pack(side="left")
+
+        self._build_tip_bar(parent)
 
         # Three-column layout
         content_frame = tk.Frame(parent, bg=BG_COLOR)
@@ -1586,7 +1688,7 @@ Click Finish to close the wizard."""
             lines.append("")
 
         # Show
-        first_ai_outfit = list(ai_poses.values())[0] if ai_poses else "base"
+        first_ai_outfit = list(ai_poses.values())[0] if ai_poses else "original"
         lines.append("SHOWING THE CHARACTER")
         lines.append("-" * 40)
         lines.append(f"  show {name} {first_ai_letter}_0 at center")
@@ -1808,11 +1910,57 @@ Click Finish to close the wizard."""
         ):
             return
 
-        # Zip and upload in a thread with loading overlay
-        import threading
+        # Check for duplicate before uploading
         self._upload_btn_state("disabled")
-        self.show_loading("Zipping character folder...")
-        threading.Thread(target=self._do_upload, args=(username,), daemon=True).start()
+        self.show_loading("Checking for duplicates...")
+
+        import threading
+        threading.Thread(
+            target=self._check_and_upload, args=(username, char_name), daemon=True
+        ).start()
+
+    def _check_and_upload(self, username: str, char_name: str) -> None:
+        """Check for duplicates, then zip and upload (runs in background thread)."""
+        from ...api.uploader import check_duplicate
+
+        on_conflict = None
+
+        success, exists = check_duplicate(char_name, username)
+        if success and exists:
+            # Duplicate found — ask user on main thread
+            result = [None]
+            import threading
+            event = threading.Event()
+
+            def ask_user():
+                answer = messagebox.askyesnocancel(
+                    "Character Already Exists",
+                    f"A character named \"{char_name}\" by \"{username}\" "
+                    f"already exists in the database.\n\n"
+                    f"Replace the existing character?\n\n"
+                    f"Yes = Replace existing\n"
+                    f"No = Keep both (rename)\n"
+                    f"Cancel = Abort upload",
+                )
+                result[0] = answer
+                event.set()
+
+            self.schedule_callback(ask_user)
+            event.wait()
+
+            if result[0] is None:
+                # User cancelled
+                self.schedule_callback(lambda: self.hide_loading())
+                self.schedule_callback(lambda: self._upload_btn_state("normal"))
+                return
+            elif result[0]:
+                on_conflict = "replace"
+            else:
+                on_conflict = "rename"
+
+        # Proceed with upload
+        self.schedule_callback(lambda: self.show_loading("Zipping character folder..."))
+        self._do_upload(username, on_conflict)
 
     def _prompt_for_username(self) -> Optional[str]:
         """Show a dialog to enter an upload username. Returns None if cancelled."""
@@ -1870,7 +2018,7 @@ Click Finish to close the wizard."""
                         child.configure(text="Upload to Database")
                     break
 
-    def _do_upload(self, username: str) -> None:
+    def _do_upload(self, username: str, on_conflict: Optional[str] = None) -> None:
         """Zip and upload the character folder (runs in background thread)."""
         import tempfile
         import zipfile
@@ -1895,7 +2043,7 @@ Click Finish to close the wizard."""
             self.schedule_callback(lambda: self.show_loading("Uploading to database..."))
 
             from ...api.uploader import upload_character_zip
-            success, message = upload_character_zip(zip_path, username)
+            success, message = upload_character_zip(zip_path, username, on_conflict)
 
             self.schedule_callback(lambda: self._upload_finished(success, message))
 
@@ -2037,7 +2185,9 @@ Click Finish to close the wizard."""
             # Flatten pose/outfit combinations into letter poses
             self._update_progress("Organizing pose structure...")
             print("[INFO] Flattening pose/outfit combinations into letter poses...")
-            final_pose_letters = flatten_pose_outfits_to_letter_poses(char_dir)
+            final_pose_letters = flatten_pose_outfits_to_letter_poses(
+                char_dir, outfit_order=self.state.generated_outfit_keys
+            )
             if not final_pose_letters:
                 print("[WARN] Flattening produced no poses; using existing letter folders.")
                 final_pose_letters = sorted(
@@ -2088,7 +2238,10 @@ Click Finish to close the wizard."""
                     log_info(f"Skipping image scaling: scale={final_scale} is >= 1.0 (only scale down)")
 
             # Build poses yaml
-            poses_yaml = {letter: {"facing": "right"} for letter in final_pose_letters}
+            pose_data = {"facing": "right"}
+            if self.state.image_height:
+                pose_data["image_height"] = self.state.image_height
+            poses_yaml = {letter: dict(pose_data) for letter in final_pose_letters}
 
             # Write character.yml with values from wizard state
             self._update_progress("Writing character data...")
@@ -2111,15 +2264,15 @@ Click Finish to close the wizard."""
             )
             print(f"[INFO] Created character.yml for {self.state.display_name}")
 
-            # Save base.png (the cropped character image) for future reference
+            # Save original.png (the cropped character image) for future reference
             if self.state.base_pose_path and self.state.base_pose_path.exists():
-                base_dest = char_dir / "base.png"
+                base_dest = char_dir / "original.png"
                 if not base_dest.exists():
                     shutil.copy2(self.state.base_pose_path, base_dest)
-                    # Scale base.png to match other images if scaling was applied
+                    # Scale original.png to match other images if scaling was applied
                     if self.state.apply_scale_to_images and (self.state.scale_factor or 1.0) < 1.0:
                         self._scale_image_file(base_dest, self.state.scale_factor)
-                    print(f"[INFO] Saved base.png to {base_dest}")
+                    print(f"[INFO] Saved original.png to {base_dest}")
 
             # Generate expression sheets (will use scaled images if scaling was applied)
             self._update_progress("Generating expression sheets...")
@@ -2184,7 +2337,8 @@ Click Finish to close the wizard."""
                 # Flatten new outfits in working folder, starting from next available letter
                 new_pose_letters = flatten_pose_outfits_to_letter_poses(
                     working_folder,
-                    starting_letter=self.state.next_pose_letter
+                    starting_letter=self.state.next_pose_letter,
+                    outfit_order=self.state.generated_outfit_keys,
                 )
                 log_info(f"Created new poses: {new_pose_letters}")
 
@@ -2250,15 +2404,15 @@ Click Finish to close the wizard."""
                                     self._scale_image_file(expr_path, scale_factor)
                                     break
 
-            # 3. Save base.png to existing folder (if not already exists)
+            # 3. Save original.png to existing folder (if not already exists)
             if self.state.base_pose_path and self.state.base_pose_path.exists():
-                base_dest = existing_folder / "base.png"
+                base_dest = existing_folder / "original.png"
                 if not base_dest.exists():
                     shutil.copy2(self.state.base_pose_path, base_dest)
                     scale_factor = self.state.scale_factor or 1.0
                     if scale_factor != 1.0:
                         self._scale_image_file(base_dest, scale_factor)
-                    log_info(f"Saved base.png to {base_dest}")
+                    log_info(f"Saved original.png to {base_dest}")
 
             # 4. Update character.yml (merge, preserving existing values)
             self._update_progress("Writing character data...")

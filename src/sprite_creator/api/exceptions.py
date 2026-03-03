@@ -7,6 +7,11 @@ class GeminiAPIError(RuntimeError):
     pass
 
 
+class GeminiQuotaError(GeminiAPIError):
+    """Raised when API quota is exceeded (billing not enabled or credits exhausted)."""
+    pass
+
+
 class GeminiSafetyError(GeminiAPIError):
     """
     Raised when Gemini blocks content due to safety filters.

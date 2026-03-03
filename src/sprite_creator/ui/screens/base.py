@@ -11,6 +11,7 @@ from typing import List, Optional, TYPE_CHECKING
 
 # Import WizardState from core layer
 from ...core.models import WizardState
+from ...config import BG_COLOR, WARNING_TEXT, SMALL_FONT
 
 if TYPE_CHECKING:
     from ..full_wizard import FullWizard
@@ -37,6 +38,7 @@ class WizardStep(ABC):
     STEP_TITLE: str = "Base Step"
     STEP_NUMBER: int = 0  # Hardcoded step number for consistent display
     STEP_HELP: str = "Override this help text in subclass."
+    STEP_TIP: str = ""  # Short tip shown below the title on every screen
 
     def __init__(self, wizard: "FullWizard", state: WizardState):
         """
@@ -196,6 +198,26 @@ class WizardStep(ABC):
         such as after regeneration.
         """
         pass
+
+    def _build_tip_bar(self, parent: tk.Frame) -> None:
+        """Build a standardized tip bar below the step title."""
+        if not self.STEP_TIP:
+            return
+        self._tip_label = tk.Label(
+            parent,
+            text=self.STEP_TIP,
+            bg=BG_COLOR,
+            fg=WARNING_TEXT,
+            font=SMALL_FONT,
+            wraplength=800,
+            justify="center",
+        )
+        self._tip_label.pack(pady=(0, 8))
+
+    def _update_tip(self, text: str) -> None:
+        """Update the tip bar text dynamically (e.g. for mode-specific tips)."""
+        if hasattr(self, "_tip_label") and self._tip_label:
+            self._tip_label.configure(text=text)
 
     def request_next(self) -> None:
         """Request navigation to the next step."""

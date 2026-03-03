@@ -13,7 +13,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 import yaml
 from PIL import Image
 
-from ..api.exceptions import GeminiAPIError, GeminiSafetyError
+from ..api.exceptions import GeminiAPIError, GeminiQuotaError, GeminiSafetyError
 from ..api.gemini_client import (
     call_gemini_image_edit,
     call_gemini_text_or_refs,
@@ -141,10 +141,10 @@ def _generate_outfit_with_safety_recovery(
     Returns:
         Tuple of (image_bytes, successful_prompt) if successful, None if all tiers fail.
     """
+    from ..config import load_background_color
     image_b64 = load_image_as_base64(base_pose_path)
     tried_prompts = set()
-    # Use black background for clean AI removal
-    background_color = "solid black (#000000)"
+    background_color = load_background_color()
 
     def try_generate(desc: str, tier_name: str) -> Optional[bytes]:
         tried_prompts.add(desc)
@@ -157,6 +157,8 @@ def _generate_outfit_with_safety_recovery(
             if e.safety_ratings:
                 print(f"[WARN] Safety ratings: {e.safety_ratings}")
             return None
+        except GeminiQuotaError:
+            raise  # Quota errors are not recoverable by retrying — propagate immediately
         except GeminiAPIError as e:
             print(f"[WARN] {tier_name}: API error during '{outfit_key}' generation: {e}")
             return None
@@ -401,9 +403,9 @@ def generate_standard_uniform_outfit(
         If for_interactive_review=False: Path to saved uniform outfit.
         If for_interactive_review=True: (path, original_bytes, rembg_bytes).
     """
+    from ..config import load_background_color
     outfits_dir.mkdir(parents=True, exist_ok=True)
-    # Use black background for clean AI removal
-    background_color = "solid black (#000000)"
+    background_color = load_background_color()
 
     # Collect the uniform reference image(s) for this gender
     uniform_refs = get_standard_uniform_reference_images(gender_style)
@@ -512,10 +514,10 @@ def generate_outfits_once(
     cleanup_data: List[Tuple[bytes, bytes]] = []
     used_prompts: Dict[str, str] = {}
 
-    # Optional: include base pose as "base.png" outfit (with background removal)
+    # Optional: include base pose as "original.png" outfit (with background removal)
     if include_base_outfit:
         base_bytes = base_pose_path.read_bytes()  # Original with solid background
-        base_out_path = (outfits_dir / "base").with_suffix(".png")
+        base_out_path = (outfits_dir / "original").with_suffix(".png")
 
         if for_interactive_review:
             # Run rembg without edge cleanup (user will apply cleanup in review UI)
@@ -525,7 +527,7 @@ def generate_outfits_once(
             base_img.save(base_out_path, format="PNG", compress_level=0, optimize=False)
             paths.append(base_out_path)
             cleanup_data.append((base_bytes, rembg_bytes))
-            # Base outfit has no prompt
+            # Original outfit has no prompt
         else:
             # Normal flow: full background removal with default edge cleanup
             processed_bytes = strip_background_ai(base_bytes)
@@ -578,6 +580,7 @@ def generate_outfits_once(
 def flatten_pose_outfits_to_letter_poses(
     char_dir: Path,
     starting_letter: str = "a",
+    outfit_order: Optional[List[str]] = None,
 ) -> List[str]:
     """
     Flatten pose/outfit combos into separate letter poses with single outfits.
@@ -595,9 +598,11 @@ def flatten_pose_outfits_to_letter_poses(
         char_dir: Character directory.
         starting_letter: First letter to use for pose assignment (default 'a').
             Use this when adding to an existing character (e.g., 'd' if existing has a,b,c).
+        outfit_order: Optional list of outfit names in desired order. If provided,
+            outfits are assigned pose letters in this order instead of alphabetically.
 
     Returns:
-        List of final pose letters (sorted).
+        List of final pose letters (in assignment order).
     """
     original_pose_dirs = [
         p for p in char_dir.iterdir()
@@ -632,14 +637,30 @@ def flatten_pose_outfits_to_letter_poses(
         if not outfits_dir.is_dir() or not faces_root.is_dir():
             continue
 
-        for outfit_path in sorted(outfits_dir.iterdir()):
-            if not outfit_path.is_file():
-                continue
-            if outfit_path.suffix.lower() not in (".png", ".webp"):
-                continue
+        # Build ordered list of outfit files
+        if outfit_order is not None:
+            # Use specified order: look up each name in the outfits directory
+            outfit_files = []
+            available = {f.stem.lower(): f for f in outfits_dir.iterdir() if f.is_file()}
+            for name in outfit_order:
+                key = name.lower()
+                if key in available and available[key].suffix.lower() in (".png", ".webp"):
+                    outfit_files.append(available[key])
+            # Add any remaining files not in the order list
+            ordered_names = {n.lower() for n in outfit_order}
+            for f in sorted(outfits_dir.iterdir()):
+                if f.is_file() and f.stem.lower() not in ordered_names and f.suffix.lower() in (".png", ".webp"):
+                    outfit_files.append(f)
+        else:
+            outfit_files = sorted(
+                f for f in outfits_dir.iterdir()
+                if f.is_file() and f.suffix.lower() in (".png", ".webp")
+            )
+
+        for outfit_path in outfit_files:
 
             outfit_name = outfit_path.stem
-            if outfit_name.lower() == "base":
+            if outfit_name.lower() == "original":
                 src_expr_dir = faces_root / "face"
             else:
                 src_expr_dir = faces_root / outfit_name
@@ -717,5 +738,4 @@ def flatten_pose_outfits_to_letter_poses(
     except Exception:
         pass
 
-    final_pose_letters.sort()
     return final_pose_letters

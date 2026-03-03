@@ -72,14 +72,14 @@ You can regenerate multiple times until satisfied with the result.
 
 The fused character will have:
 - Combined visual features from both input images
-- A black background (ready for sprite processing)
+- A solid background (ready for sprite processing)
 - Art style matching the input images
 
 WHAT HAPPENS NEXT
 After clicking Next, you'll go to the Setup step where you can:
 - Crop the image to mid-thigh level
 - Optionally modify the fused character further
-- No normalization is needed (fusion already has black background)
+- No normalization is needed (fusion already has a solid background)
 
 TROUBLESHOOTING
 "Fusion button is disabled"
@@ -550,10 +550,12 @@ TROUBLESHOOTING
             right_b64 = load_image_as_base64(self.state.fusion_right_path)
 
             # Build prompt
+            from ...config import load_background_color
             prompt = build_fusion_prompt(
                 archetype_label=self.state.archetype_label,
                 gender_style=self.state.gender_style,
                 hair_length=self.state.hair_length,
+                background_color=load_background_color(),
             )
 
             # Call Gemini fusion API
