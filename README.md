@@ -10,7 +10,7 @@ AI-powered character sprite generator for Student Transfer, using Google Gemini.
 - **Multiple outfits**: Casual, formal, athletic, swimsuit, uniform (custom too)
 - **Expression generation**: Neutral, happy, sad, angry, surprised, and custom expressions
 - **Automatic background removal** with alpha matting and manual touch-up tools
-- **Configurable background color** for generation (default lime green)
+- **Configurable background color** for generation (default black)
 - **Add to existing characters**: Add new outfits or expressions to previously created characters
 - **Scale & height crop** with 77 reference sprites for accurate in-game sizing
 - **Expression sheet generation** for visual reference
@@ -135,7 +135,7 @@ Use the **Clear Backups** button on the launcher to free disk space. Note that c
 - If Gemini's safety filters block a generation, the wizard shows a warning and continues
 - You can regenerate individual outfits and expressions without starting over
 - **View API Usage** on the launcher opens Google AI Studio's usage dashboard
-- Change the **Generation BG** color if the default lime green clashes with your character's colors
+- Change the **Generation BG** color if the default black clashes with your character's colors
 
 ---
 

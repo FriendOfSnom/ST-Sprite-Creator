@@ -171,7 +171,7 @@ def save_upload_username(username: str) -> None:
 # BACKGROUND COLOR
 # ═══════════════════════════════════════════════════════════════════════════════
 
-DEFAULT_BACKGROUND_COLOR = "lime green (#00FF00)"
+DEFAULT_BACKGROUND_COLOR = "black (#000000)"
 
 # Preset options for the settings dialog
 BACKGROUND_COLOR_PRESETS = [
