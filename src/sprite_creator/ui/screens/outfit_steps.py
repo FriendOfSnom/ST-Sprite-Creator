@@ -55,7 +55,7 @@ class CustomRegenModal:
     Modal dialog for entering a custom outfit description for regeneration.
     """
 
-    def __init__(self, parent: tk.Tk, outfit_name: str, on_generate: callable):
+    def __init__(self, parent: tk.Tk, outfit_name: str, on_generate: callable, bg_color_name: str = ""):
         """
         Initialize the custom regen modal.
 
@@ -63,10 +63,12 @@ class CustomRegenModal:
             parent: Parent window
             outfit_name: Name of the outfit being regenerated (for title)
             on_generate: Callback with signature (prompt: str) -> None
+            bg_color_name: Generation background color name for the tip
         """
         self._parent = parent
         self._on_generate = on_generate
         self._result_prompt: Optional[str] = None
+        self._bg_color_name = bg_color_name
 
         # Create modal window
         self.window = tk.Toplevel(parent)
@@ -124,7 +126,18 @@ class CustomRegenModal:
             fg=TEXT_SECONDARY,
             font=SMALL_FONT,
             justify="left",
-        ).pack(anchor="w", pady=(0, 12))
+        ).pack(anchor="w", pady=(0, 4))
+
+        # BG color clash tip
+        if self._bg_color_name:
+            tk.Label(
+                main_frame,
+                text=f"Tip: Avoid {self._bg_color_name} \u2014 it matches your generation background.",
+                bg=BG_COLOR,
+                fg=WARNING_TEXT,
+                font=SMALL_FONT,
+                justify="left",
+            ).pack(anchor="w", pady=(0, 8))
 
         # Text area with scrollbar
         text_frame = tk.Frame(main_frame, bg=BG_COLOR)
@@ -1247,7 +1260,9 @@ When satisfied with all outfits, click Next to proceed to expression generation.
         def on_generate(custom_prompt: str):
             self._regenerate_outfit_with_custom_prompt(idx, outfit_name, custom_prompt)
 
-        CustomRegenModal(self.wizard.root, outfit_name, on_generate)
+        from ...config import load_background_color
+        bg_color_name = load_background_color().split("(")[0].strip()
+        CustomRegenModal(self.wizard.root, outfit_name, on_generate, bg_color_name=bg_color_name)
 
     def _regenerate_outfit_with_custom_prompt(self, idx: int, outfit_name: str, custom_prompt: str) -> None:
         """Regenerate an outfit with a user-provided custom prompt."""

@@ -2778,7 +2778,8 @@ class OptionsStep(WizardStep):
     STEP_NUMBER = 4
     STEP_TIP = (
         "Pick which outfits and expressions to generate. "
-        "You can also save and load custom outfit presets."
+        "You can also save and load custom outfit presets.\n"
+        "\u2022 Custom prompts: Avoid using {bg_color} in your outfit descriptions \u2014 it matches your generation background and will hurt BG removal."
     )
     STEP_HELP = """Generation Options
 

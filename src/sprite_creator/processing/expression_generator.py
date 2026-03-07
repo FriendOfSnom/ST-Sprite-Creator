@@ -582,7 +582,7 @@ def generate_and_review_expressions_for_pose(
                 if action == "edit_bg":
                     expr_path = expr_paths[idx]
                     # Launch click-to-remove tool for manual background editing
-                    click_to_remove_background(expr_path, threshold=30)
+                    click_to_remove_background(expr_path)
                     # Image is updated in-place if user accepted; refresh UI
                     continue
 
@@ -619,7 +619,7 @@ def generate_and_review_expressions_for_pose(
                         # Save original bytes (with black BG) to file for manual editing
                         expr_path.write_bytes(original_bytes)
                         # Open manual removal UI
-                        accepted = click_to_remove_background(expr_path, threshold=30)
+                        accepted = click_to_remove_background(expr_path)
                         if accepted:
                             # Read the manually edited result and update cleanup_data
                             new_bytes = expr_path.read_bytes()

@@ -1973,7 +1973,7 @@ When adding expressions to existing outfits:
             return
 
         from ..review_windows import click_to_remove_background
-        accepted = click_to_remove_background(temp_path, threshold=30)
+        accepted = click_to_remove_background(temp_path)
 
         if accepted:
             # Verify temp file still exists after editor closed

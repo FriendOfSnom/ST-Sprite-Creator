@@ -816,7 +816,7 @@ def build_outfit_prompt(base_outfit_desc: str, gender_style: str, background_col
         length_desc = HAIR_LENGTH_DESCRIPTIONS.get(hair_length.lower(), hair_length.lower())
         hair_instruction = f"Change the character's hairstyle completely. Give them a new {hair_length.lower()} length hairstyle that fits their new outfit yet keeps the same hair texture and color. Their hair should now be {length_desc}. "
     else:
-        hair_instruction = "Change the character's hairstyle completely to give them a new hairstyle that fits their new outfit yet keeps the same hair color, length, and texture. "
+        hair_instruction = ""
     prompt = (
         f"Edit the {archetype}'s clothes so our {archetype} is wearing {base_outfit_desc}. "
         f"{hair_instruction}"
@@ -881,7 +881,7 @@ def build_standard_school_uniform_prompt(
         length_desc = HAIR_LENGTH_DESCRIPTIONS.get(hair_length.lower(), hair_length.lower())
         hair_instruction = f"Change the character's hairstyle completely. Give them a new {hair_length.lower()} length hairstyle that fits their new outfit yet keeps the same hair texture and color. Their hair should now be {length_desc}. "
     else:
-        hair_instruction = "Change the character's hairstyle completely to give them a new hairstyle that fits their new outfit yet keeps the same hair color, length, and texture. "
+        hair_instruction = ""
 
     archetype = archetype_label or "character"
     # Match the structure of build_outfit_prompt which works correctly

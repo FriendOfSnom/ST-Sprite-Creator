@@ -736,7 +736,7 @@ def review_initial_base_pose(
     return decision["choice"], decision["use_as_outfit"], decision["additional_text"]
 
 
-def click_to_remove_background(image_path: Path, threshold: int = 30) -> bool:
+def click_to_remove_background(image_path: Path, threshold: int = 50) -> bool:
     """
     Interactive UI for manually removing black background by clicking.
 
@@ -747,7 +747,7 @@ def click_to_remove_background(image_path: Path, threshold: int = 30) -> bool:
 
     Args:
         image_path: Path to the image file to process.
-        threshold: Color similarity threshold for flood fill (default 30).
+        threshold: Color similarity threshold for flood fill (default 50).
 
     Returns:
         True if user accepted changes, False if cancelled.
