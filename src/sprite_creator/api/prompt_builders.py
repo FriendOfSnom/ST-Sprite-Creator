@@ -397,6 +397,30 @@ ATHLETIC_COLORS = {
     ],
 }
 
+# Outfit colors to exclude based on the user's generation background color.
+# Prevents outfit-background color clashes that confuse rembg during BG removal.
+# Key: lowercase BG color name (portion before the hex code in BACKGROUND_COLOR_PRESETS).
+# Value: set of outfit color strings (lowercase) to skip when picking a random color.
+BG_CLASH_COLORS = {
+    "black": {"black", "charcoal", "midnight blue"},
+    "light grey": {"grey", "gray", "silver", "pearl grey", "slate", "light grey"},
+    "lime green": {"lime green", "lime", "neon green", "mint green", "mint"},
+    "blue": {"royal blue", "cobalt blue", "cobalt", "electric blue", "blue"},
+}
+
+
+def _filter_colors_for_bg(colors: list, background_color: str) -> list:
+    """Remove colors that clash with the generation background. Falls back to unfiltered if all removed."""
+    if not background_color:
+        return colors
+    bg_name = background_color.split("(")[0].strip().lower()
+    clash_set = BG_CLASH_COLORS.get(bg_name, set())
+    if not clash_set:
+        return colors
+    filtered = [c for c in colors if c.lower() not in clash_set]
+    return filtered if filtered else colors
+
+
 # Occasions - COMMENTED OUT for testing (outfit_type in prompt provides enough context)
 # To restore: uncomment this dict and revert the prompt in generate_outfit_description()
 # OCCASIONS = {
@@ -606,24 +630,31 @@ def _select_weighted_color_role() -> str:
     return "primary"  # Fallback
 
 
-def _get_color_for_outfit(archetype_label: str, outfit_type: str) -> str:
-    """Get a random color appropriate for the archetype and outfit type."""
+def _get_color_for_outfit(archetype_label: str, outfit_type: str, background_color: str = "") -> str:
+    """Get a random color appropriate for the archetype and outfit type.
+
+    Filters out colors that clash with the generation background color.
+    """
     if outfit_type == "formal" and archetype_label in FORMAL_COLORS:
-        return random.choice(FORMAL_COLORS[archetype_label])
+        colors = FORMAL_COLORS[archetype_label]
     elif outfit_type == "swimsuit" and archetype_label in SWIMSUIT_COLORS:
-        return random.choice(SWIMSUIT_COLORS[archetype_label])
+        colors = SWIMSUIT_COLORS[archetype_label]
     elif outfit_type == "casual" and archetype_label in CASUAL_COLORS:
-        return random.choice(CASUAL_COLORS[archetype_label])
+        colors = CASUAL_COLORS[archetype_label]
     elif outfit_type == "athletic" and archetype_label in ATHLETIC_COLORS:
-        return random.choice(ATHLETIC_COLORS[archetype_label])
-    # Fallback for underwear/uniform or missing entries
-    return random.choice(["black", "white", "navy", "grey"])
+        colors = ATHLETIC_COLORS[archetype_label]
+    else:
+        # Fallback for underwear/uniform or missing entries
+        colors = ["black", "white", "navy", "grey"]
+
+    return random.choice(_filter_colors_for_bg(colors, background_color))
 
 
 def generate_outfit_description(
     api_key: str,
     outfit_type: str,
     archetype_label: str,
+    background_color: str = "",
 ) -> str:
     """
     Generate an outfit description using Gemini text API.
@@ -679,7 +710,7 @@ def generate_outfit_description(
         garment_type = base_type
 
     # ALWAYS get color and color role (no more 50% chance)
-    color = _get_color_for_outfit(archetype_label, base_type)
+    color = _get_color_for_outfit(archetype_label, base_type, background_color)
     color_role = _select_weighted_color_role()
 
     # Build prompt (no occasions — outfit_type provides category context)
@@ -783,13 +814,13 @@ def build_outfit_prompt(base_outfit_desc: str, gender_style: str, background_col
     archetype = archetype_label or "character"
     if hair_length:
         length_desc = HAIR_LENGTH_DESCRIPTIONS.get(hair_length.lower(), hair_length.lower())
-        hair_instruction = f"Give them a completely new {hair_length.lower()} hairstyle that fits their new outfit without changing the hair color or texture. Keep the new style at a {hair_length.lower()} length which means {length_desc}. "
+        hair_instruction = f"Change the character's hairstyle completely. Give them a new {hair_length.lower()} length hairstyle that fits their new outfit yet keeps the same hair texture and color. Their hair should now be {length_desc}. "
     else:
-        hair_instruction = "Give them a completely new hairstyle that fits their new outfit without changing the hair color or texture. Keep the exact same hair length as the original. Do not make it any longer or shorter than it is. "
+        hair_instruction = "Change the character's hairstyle completely to give them a new hairstyle that fits their new outfit yet keeps the same hair color, length, and texture. "
     prompt = (
         f"Edit the {archetype}'s clothes so our {archetype} is wearing {base_outfit_desc}. "
-        "Don't change the size, proportions, framing, art style, or age of the character. "
         f"{hair_instruction}"
+        "Don't change the size, proportions, framing, art style, or age of the character. "
         f"Give the character a {bg} background behind them. "
         "Make sure the head, arms, hair, hands, and clothes are all kept within the image."
     )
@@ -829,9 +860,9 @@ def build_standard_school_uniform_prompt(
     if gender_style == "f":
         uniform_desc = (
             "a vibrant navy blue sleeveless blazer with a traditional waistcoat-style hem, outlined with thin gold piping along the lapels and bottom edge. "
-            "The chest and breast area of the blazer is completely plain with NO emblem, NO crest, NO patch, and NO logo on it whatsoever. "
-            "A gold/orange rectangular school crest patch on one of the sleeves only - NOT on the chest. "
-            "Four gold buttons in a double-breasted 2x2 arrangement positioned at the waist. "
+            "The chest and breast area of the blazer is smooth, plain, undecorated fabric with nothing on it. "
+            "A gold/orange rectangular crest patch is sewn onto the upper arm sleeve area. "
+            "The only four buttons are gold in a double-breasted 2x2 arrangement positioned at the waist. "
             "Underneath is a white short-sleeved collared dress shirt with thin blue piping around the collar. "
             "A solid red necktie with no pattern. "
             "A short vibrant magenta-red plaid pleated skirt with a tartan pattern and gold trim at the bottom hem"
@@ -839,8 +870,8 @@ def build_standard_school_uniform_prompt(
     else:
         uniform_desc = (
             "a white short-sleeved collared dress shirt with thin dark piping on the collar edge. "
-            "The chest and breast area of the shirt is completely plain with NO emblem, NO crest, NO patch, and NO logo on it whatsoever. "
-            "A gold/orange rectangular school crest patch on one of the sleeves only - NOT on the chest. "
+            "The chest and breast area of the shirt is smooth, plain, undecorated fabric with nothing on it. "
+            "A gold/orange rectangular crest patch is sewn onto the upper arm sleeve area. "
             "A solid red necktie with two thin horizontal silver stripes. "
             "Dark navy blue dress trousers with a dark brown leather belt with a gold rectangular buckle. "
             "The shirt is neatly tucked into the trousers"
@@ -848,16 +879,16 @@ def build_standard_school_uniform_prompt(
 
     if hair_length:
         length_desc = HAIR_LENGTH_DESCRIPTIONS.get(hair_length.lower(), hair_length.lower())
-        hair_instruction = f"Give them a completely new {hair_length.lower()} hairstyle that fits their new outfit without changing the hair color or texture. Keep the new style at a {hair_length.lower()} length which means {length_desc}. "
+        hair_instruction = f"Change the character's hairstyle completely. Give them a new {hair_length.lower()} length hairstyle that fits their new outfit yet keeps the same hair texture and color. Their hair should now be {length_desc}. "
     else:
-        hair_instruction = "Give them a completely new hairstyle that fits their new outfit without changing the hair color or texture. Keep the exact same hair length as the original. Do not make it any longer or shorter than it is. "
+        hair_instruction = "Change the character's hairstyle completely to give them a new hairstyle that fits their new outfit yet keeps the same hair color, length, and texture. "
 
     archetype = archetype_label or "character"
     # Match the structure of build_outfit_prompt which works correctly
     return (
         f"Edit the {archetype}'s clothes so our {archetype} is wearing {uniform_desc}. "
-        "Don't change the size, proportions, framing, art style, or age of the character. "
         f"{hair_instruction}"
+        "Don't change the size, proportions, framing, art style, or age of the character. "
         f"Give the character a {background_color.split('(')[0].strip()} background behind them. "
         "Make sure the head, arms, hair, hands, and clothes are all kept within the image."
     )
@@ -1051,6 +1082,7 @@ def build_outfit_prompts_with_config(
     gender_style: str,
     selected_outfit_keys: List[str],
     outfit_prompt_config: Dict[str, Dict[str, Optional[str]]],
+    background_color: str = "",
 ) -> Dict[str, str]:
     """
     Build one prompt per selected outfit_key, honoring per-outfit settings.
@@ -1093,7 +1125,7 @@ def build_outfit_prompts_with_config(
         if use_random:
             # Generate dynamic outfit description via Gemini text API
             try:
-                prompts[key] = generate_outfit_description(api_key, key, archetype_label)
+                prompts[key] = generate_outfit_description(api_key, key, archetype_label, background_color)
             except Exception as e:
                 print(f"[WARN] Failed to generate outfit description for {key}: {e}")
                 # Fallback to generic description

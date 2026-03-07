@@ -312,7 +312,8 @@ def regenerate_single_expression(
     edge_cleanup_passes: Optional[int] = None,
     bg_removal_mode: str = "rembg",
     archetype_label: str = "",
-) -> Path:
+    for_interactive_review: bool = False,
+) -> Union[Path, Tuple[Path, Optional[bytes], Optional[bytes]]]:
     """
     Regenerate a single expression image for one outfit.
 
@@ -329,9 +330,11 @@ def regenerate_single_expression(
         expr_key: Key of expression to regenerate (e.g., "0", "7", "14").
         edge_cleanup_tolerance: Custom tolerance for edge cleanup (uses default if None).
         edge_cleanup_passes: Custom passes for edge cleanup (uses default if None).
+        for_interactive_review: If True, return (path, original_bytes, rembg_bytes).
 
     Returns:
-        Path to regenerated expression image with transparent background.
+        If for_interactive_review=False: Path to regenerated expression image.
+        If for_interactive_review=True: (path, original_bytes, rembg_bytes) tuple.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -341,6 +344,9 @@ def regenerate_single_expression(
         neutral_stem = out_dir / "0"
         neutral_path = save_img_as_png(outfit_img, neutral_stem)
         print(f"  [Expr] Regenerated neutral expression 0 -> {neutral_path}")
+        if for_interactive_review:
+            outfit_bytes = outfit_path.read_bytes()
+            return (neutral_path, outfit_bytes, outfit_bytes)
         return neutral_path
 
     # Find the expression description by key
@@ -356,7 +362,7 @@ def regenerate_single_expression(
     image_b64 = load_image_as_base64(outfit_path)
     out_stem = out_dir / str(expr_key)
 
-    img_bytes = _generate_expression_with_safety_recovery(
+    result = _generate_expression_with_safety_recovery(
         api_key,
         image_b64,
         int(expr_key) if expr_key.isdigit() else 0,  # For logging/internal use
@@ -364,17 +370,27 @@ def regenerate_single_expression(
         desc,
         edge_cleanup_tolerance=edge_cleanup_tolerance,
         edge_cleanup_passes=edge_cleanup_passes,
+        for_interactive_review=for_interactive_review,
         bg_removal_mode=bg_removal_mode,
         archetype_label=archetype_label,
     )
 
-    if img_bytes:
-        final_path = save_image_bytes_as_png(img_bytes, out_stem)
-        print(
-            f"  [Expr] Regenerated expression '{expr_key}' "
-            f"for '{outfit_path.stem}' -> {final_path}"
-        )
-        return final_path
+    if result:
+        if for_interactive_review:
+            original_bytes, rembg_bytes = result
+            final_path = save_image_bytes_as_png(rembg_bytes, out_stem)
+            print(
+                f"  [Expr] Regenerated expression '{expr_key}' "
+                f"for '{outfit_path.stem}' -> {final_path}"
+            )
+            return (final_path, original_bytes, rembg_bytes)
+        else:
+            final_path = save_image_bytes_as_png(result, out_stem)
+            print(
+                f"  [Expr] Regenerated expression '{expr_key}' "
+                f"for '{outfit_path.stem}' -> {final_path}"
+            )
+            return final_path
     else:
         # All recovery attempts failed - raise error for user-initiated regeneration
         raise GeminiSafetyError(

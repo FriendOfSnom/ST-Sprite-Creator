@@ -16,6 +16,9 @@ from PIL import Image
 from ...config import (
     NAMES_CSV_PATH,
     GENDER_ARCHETYPES,
+    BACKGROUND_COLOR_PRESETS,
+    load_background_color,
+    save_background_color,
     BG_COLOR,
     CARD_BG,
     TEXT_COLOR,
@@ -45,7 +48,8 @@ class SettingsStep(WizardStep):
     STEP_NUMBER = 2
     STEP_TIP = (
         "Set the character's voice, name, and body type. "
-        "Hair length controls how hair is styled in generated outfits."
+        "Hair length controls how hair is styled in generated outfits.\n"
+        "\u2022 Generation BG: Pick a color that doesn't match your character's colors for best background removal."
     )
     STEP_HELP = """Character Settings
 
@@ -78,6 +82,16 @@ Controls how long the character's hair will be styled in each outfit:
 This tells the AI what length to style the hair at for each new outfit.
 The base character keeps whatever hair the AI originally generates.
 
+GENERATION BACKGROUND
+The background color used behind the character during AI generation. After generation, this background is automatically removed.
+
+Pick a color that DOESN'T match your character's colors:
+- Black hair? Use lime green or light grey
+- Green outfit? Use black or white
+- Light/blonde character? Use black
+
+Lime green works well for most characters (like a green screen).
+
 Click Next when all fields are filled. For image mode, this will also
 normalize your image (sharpen resolution, add solid background).
 
@@ -106,6 +120,7 @@ For characters NOT created by Sprite Creator:
         self._hair_var: Optional[tk.StringVar] = None
         self._hair_frame: Optional[tk.Frame] = None
         self._hair_menu: Optional[tk.OptionMenu] = None
+        self._bg_color_var: Optional[tk.StringVar] = None
         self._voice_indicator: Optional[tk.Label] = None
         self._name_entry: Optional[tk.Entry] = None
         self._status_label: Optional[tk.Label] = None
@@ -359,6 +374,33 @@ For characters NOT created by Sprite Creator:
             self._hair_menu.configure(width=20, bg="#1E1E1E", fg=TEXT_COLOR)
             self._hair_menu.pack(side="left")
 
+        # Background color selection
+        bg_color_frame = tk.Frame(form_card, bg=CARD_BG)
+        bg_color_frame.pack(fill="x", pady=(0, 16))
+
+        tk.Label(
+            bg_color_frame,
+            text="Generation BG:",
+            bg=CARD_BG,
+            fg=TEXT_COLOR,
+            font=BODY_FONT,
+            width=12,
+            anchor="e",
+        ).pack(side="left", padx=(0, 12))
+
+        self._bg_color_var = tk.StringVar(value=load_background_color())
+        bg_color_menu = tk.OptionMenu(bg_color_frame, self._bg_color_var, *BACKGROUND_COLOR_PRESETS)
+        bg_color_menu.configure(width=20, bg="#1E1E1E", fg=TEXT_COLOR)
+        bg_color_menu.pack(side="left")
+
+        tk.Label(
+            bg_color_frame,
+            text="Pick a color that doesn't match your character",
+            bg=CARD_BG,
+            fg=TEXT_SECONDARY,
+            font=SMALL_FONT,
+        ).pack(side="left", padx=(8, 0))
+
         # Status label
         self._status_label = tk.Label(
             form_card,
@@ -469,6 +511,10 @@ For characters NOT created by Sprite Creator:
             self._hair_var.set(self.state.hair_length)
         self._update_hair_length_visibility()
 
+        # Restore background color from config
+        if self._bg_color_var:
+            self._bg_color_var.set(load_background_color())
+
         # For add-to-existing mode, show helpful status
         if self.state.is_adding_to_existing:
             if is_sprite_creator_character:
@@ -512,6 +558,10 @@ For characters NOT created by Sprite Creator:
         self.state.display_name = name_value
         self.state.archetype_label = self._arch_var.get()
         self.state.hair_length = self._hair_var.get() if self._voice_var.get() == "girl" else ""
+
+        # Save background color to config
+        if self._bg_color_var and self._bg_color_var.get():
+            save_background_color(self._bg_color_var.get())
 
         log_info(f"SETTINGS: Name={self.state.display_name}, Archetype={self.state.archetype_label}, Voice={self.state.voice}, Gender={self.state.gender_style}, Hair={self.state.hair_length}, Mode={self.state.source_mode}")
 
@@ -588,11 +638,11 @@ For characters NOT created by Sprite Creator:
                 "poses, or nudity. Try a more conservatively dressed image."
             )
             log_error(f"Normalization blocked by safety filters")
-            self.schedule_callback(lambda: self._on_normalization_safety_error(safety_msg))
+            self.schedule_callback(lambda m=safety_msg: self._on_normalization_safety_error(m))
         except Exception as e:
             error_msg = str(e)
             log_error(f"Normalization failed: {error_msg}")
-            self.schedule_callback(lambda: self._on_normalization_error(error_msg))
+            self.schedule_callback(lambda m=error_msg: self._on_normalization_error(m))
 
     def _on_normalization_complete(self) -> None:
         """Handle successful normalization."""

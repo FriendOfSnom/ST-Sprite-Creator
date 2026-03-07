@@ -44,6 +44,9 @@ from ...config import (
     load_saved_outfits,
     save_outfit,
     delete_saved_outfit,
+    BACKGROUND_COLOR_PRESETS,
+    load_background_color,
+    save_background_color,
 )
 from ..tk_common import (
     create_primary_button,
@@ -157,6 +160,7 @@ After selecting, click Next to continue."""
         self._fusion_hair_var: Optional[tk.StringVar] = None
         self._fusion_hair_frame: Optional[tk.Frame] = None
         self._fusion_hair_menu: Optional[tk.OptionMenu] = None
+        self._fusion_bg_color_var: Optional[tk.StringVar] = None
         self._fusion_voice_indicator: Optional[tk.Label] = None
         self._fusion_name_entry: Optional[tk.Entry] = None
 
@@ -339,6 +343,22 @@ After selecting, click Next to continue."""
         self._fusion_hair_menu = tk.OptionMenu(self._fusion_hair_frame, self._fusion_hair_var, *HAIR_LENGTHS)
         self._fusion_hair_menu.configure(width=12, bg="#1E1E1E", fg=TEXT_COLOR)
         self._fusion_hair_menu.pack(side="left")
+
+        # Background color selection (same row)
+        bg_frame = tk.Frame(row_frame, bg=CARD_BG)
+        bg_frame.pack(side="left", padx=(20, 0))
+
+        tk.Label(bg_frame, text="BG:", bg=CARD_BG, fg=TEXT_COLOR, font=BODY_FONT).pack(side="left", padx=(0, 6))
+
+        self._fusion_bg_color_var = tk.StringVar(value=load_background_color())
+        fusion_bg_menu = tk.OptionMenu(bg_frame, self._fusion_bg_color_var, *BACKGROUND_COLOR_PRESETS)
+        fusion_bg_menu.configure(width=18, bg="#1E1E1E", fg=TEXT_COLOR)
+        fusion_bg_menu.pack(side="left")
+
+        tk.Label(
+            bg_frame, text="Avoid your character's colors",
+            bg=CARD_BG, fg=TEXT_SECONDARY, font=SMALL_FONT,
+        ).pack(side="left", padx=(6, 0))
 
         # Images row
         images_frame = tk.Frame(parent, bg=BG_COLOR)
@@ -608,6 +628,10 @@ After selecting, click Next to continue."""
         self.state.archetype_label = self._fusion_arch_var.get()
         self.state.hair_length = self._fusion_hair_var.get() if self._fusion_voice_var.get() == "girl" else ""
 
+        # Save background color to config
+        if self._fusion_bg_color_var and self._fusion_bg_color_var.get():
+            save_background_color(self._fusion_bg_color_var.get())
+
         self._is_fusing = True
         self._fusion_btn.configure(state="disabled")
         self._fusion_status_label.configure(text="Generating fused character...", fg=ACCENT_COLOR)
@@ -689,11 +713,11 @@ After selecting, click Next to continue."""
                 "poses, or nudity. Try different input images."
             )
             log_error("Fusion blocked by safety filters")
-            self.schedule_callback(lambda: self._on_fusion_error(safety_msg))
+            self.schedule_callback(lambda m=safety_msg: self._on_fusion_error(m))
         except Exception as e:
             error_msg = str(e)
             log_error(f"Fusion failed: {error_msg}")
-            self.schedule_callback(lambda: self._on_fusion_error(error_msg))
+            self.schedule_callback(lambda m=error_msg: self._on_fusion_error(m))
 
     def _on_fusion_complete(self, result_img: Image.Image) -> None:
         """Handle successful fusion."""
@@ -809,6 +833,10 @@ After selecting, click Next to continue."""
             self.state.archetype_label = self._fusion_arch_var.get()
             self.state.hair_length = self._fusion_hair_var.get() if self._fusion_voice_var.get() == "girl" else ""
 
+            # Save background color to config
+            if self._fusion_bg_color_var and self._fusion_bg_color_var.get():
+                save_background_color(self._fusion_bg_color_var.get())
+
         return True
 
 
@@ -919,12 +947,20 @@ Click Next when your character looks right."""
         self._accept_crop_btn: Optional[tk.Button] = None
         self._restore_btn: Optional[tk.Button] = None
         self._original_image_backup: Optional[Image.Image] = None
+        self._keep_image_btn: Optional[tk.Button] = None
 
         # For prompt mode: generation
         self._generate_btn: Optional[tk.Button] = None
         self._generation_status: Optional[tk.Label] = None
         self._generated_image: Optional[Image.Image] = None
         self._use_st_style_var: Optional[tk.IntVar] = None  # ST style toggle
+
+        # Kept-images gallery (shared across prompt/image/fusion modes)
+        self._gallery_frame: Optional[tk.Frame] = None
+        self._gallery_inner: Optional[tk.Frame] = None
+        self._gallery_canvas: Optional[tk.Canvas] = None
+        self._gallery_images: List[Image.Image] = []  # Full-size PIL images
+        self._gallery_tk_thumbs: List[ImageTk.PhotoImage] = []  # Thumbnail refs
 
         # For image mode: modification (normalization moved to SettingsStep)
         self._image_modify_frame: Optional[tk.Frame] = None
@@ -1107,6 +1143,50 @@ Click Next when your character looks right."""
         )
         self._generation_status.pack(pady=(6, 0))
 
+        # === Kept-images gallery (shared, in left column) ===
+        self._gallery_frame = tk.Frame(self._left_col, bg=BG_COLOR)
+        # Starts hidden - shown when first image is kept
+
+        tk.Label(
+            self._gallery_frame,
+            text="Kept Images",
+            bg=BG_COLOR,
+            fg=ACCENT_COLOR,
+            font=SECTION_FONT,
+        ).pack(anchor="w", pady=(12, 4))
+
+        tk.Label(
+            self._gallery_frame,
+            text="Click a thumbnail to load it back. Right-click to remove.",
+            bg=BG_COLOR,
+            fg=TEXT_SECONDARY,
+            font=SMALL_FONT,
+        ).pack(anchor="w", pady=(0, 4))
+
+        # Scrollable thumbnail strip
+        gallery_canvas = tk.Canvas(
+            self._gallery_frame, bg=CARD_BG, height=110, highlightthickness=0,
+        )
+        gallery_canvas.pack(fill="x")
+
+        self._gallery_inner = tk.Frame(gallery_canvas, bg=CARD_BG)
+        gallery_canvas.create_window((0, 0), window=self._gallery_inner, anchor="nw")
+
+        def _on_gallery_configure(event):
+            gallery_canvas.configure(scrollregion=gallery_canvas.bbox("all"))
+
+        self._gallery_inner.bind("<Configure>", _on_gallery_configure)
+
+        # Mouse wheel horizontal scroll
+        def _on_gallery_scroll(event):
+            gallery_canvas.xview_scroll(-1 if event.delta > 0 else 1, "units")
+
+        gallery_canvas.bind("<MouseWheel>", _on_gallery_scroll)
+        gallery_canvas.bind("<Button-4>", lambda e: gallery_canvas.xview_scroll(-3, "units"))
+        gallery_canvas.bind("<Button-5>", lambda e: gallery_canvas.xview_scroll(3, "units"))
+
+        self._gallery_canvas = gallery_canvas
+
         # === RIGHT COLUMN: Image preview / Crop ===
         self._right_col = tk.Frame(columns, bg=BG_COLOR)
         self._right_col.pack(side="left", fill="both", expand=True)
@@ -1176,6 +1256,15 @@ Click Next when your character looks right."""
         )
         # Restore button starts hidden
         self._restore_btn.pack_forget()
+
+        self._keep_image_btn = create_secondary_button(
+            self._crop_buttons_frame,
+            "Keep Image",
+            self._on_keep_image,
+            width=12,
+        )
+        # Keep button starts hidden - shown once an image is generated/loaded
+        self._keep_image_btn.pack_forget()
 
         # === Image Mode: Modify Character Section (shown in image mode only) ===
         self._image_modify_frame = tk.Frame(self._left_col, bg=BG_COLOR)
@@ -1446,6 +1535,7 @@ Click Next when your character looks right."""
                 archetype_label=self.state.archetype_label,
                 gender_style=self.state.gender_style,
                 hair_length=self.state.hair_length,
+                background_color=load_background_color(),
             )
 
             # Get reference images for this archetype (only if ST style toggle is ON)
@@ -1485,11 +1575,11 @@ Click Next when your character looks right."""
                 "Try a more conservatively described character."
             )
             log_generation_complete("character_from_text", False, "Safety filter blocked")
-            self.schedule_callback(lambda: self._on_generation_error(safety_msg))
+            self.schedule_callback(lambda m=safety_msg: self._on_generation_error(m))
         except Exception as e:
             error_msg = str(e)
             log_generation_complete("character_from_text", False, error_msg)
-            self.schedule_callback(lambda: self._on_generation_error(error_msg))
+            self.schedule_callback(lambda m=error_msg: self._on_generation_error(m))
 
     def _on_generation_complete(self) -> None:
         """Handle successful generation."""
@@ -1564,6 +1654,7 @@ Click Next when your character looks right."""
         self._crop_accepted = False
         self._restore_btn.pack_forget()
         self._accept_crop_btn.pack(side="left", padx=(0, 8))
+        self._keep_image_btn.pack(side="left", padx=(8, 0))
 
         # Restore previous crop if exists
         if self.state.crop_y is not None:
@@ -1672,7 +1763,8 @@ Click Next when your character looks right."""
         # Handle add-to-existing mode separately
         if self.state.is_adding_to_existing:
             self._update_tip(
-                "Select a sprite from the existing character to use as the base for new outfits."
+                "Select a sprite from the existing character to use as the base for new outfits. "
+                "The preview may show extra space above or below the character — this is just a display issue and won't affect the final result."
             )
             self._setup_add_to_existing_mode()
             return
@@ -1803,9 +1895,15 @@ Click Next when your character looks right."""
             else:
                 self.schedule_callback(lambda: self._on_modification_error("No image returned"))
 
+        except GeminiSafetyError:
+            msg = (
+                "Gemini blocked this content due to safety filters.\n\n"
+                "Try different modification instructions."
+            )
+            self.schedule_callback(lambda m=msg: self._on_modification_error(m))
         except Exception as e:
             error_msg = str(e)
-            self.schedule_callback(lambda: self._on_modification_error(error_msg))
+            self.schedule_callback(lambda m=error_msg: self._on_modification_error(m))
 
     def _on_modification_complete(self, modified_image: Image.Image) -> None:
         """Handle successful modification."""
@@ -1854,6 +1952,95 @@ Click Next when your character looks right."""
         self._image_status.configure(text="Reset to normalized image.", fg=ACCENT_COLOR)
         # Update Next button (crop needs to be re-accepted)
         self._update_next_button_state()
+
+    # =========================================================================
+    # Kept-Images Gallery
+    # =========================================================================
+
+    def _on_keep_image(self) -> None:
+        """Save the current pre-crop image to the gallery."""
+        if self._original_image_backup is None:
+            return
+
+        # Store full-size copy
+        img = self._original_image_backup.copy()
+        self._gallery_images.append(img)
+
+        # Build thumbnail and add to gallery strip
+        self._add_gallery_thumbnail(img, len(self._gallery_images) - 1)
+
+        # Show gallery if first image
+        if len(self._gallery_images) == 1:
+            self._gallery_frame.pack(fill="x", pady=(6, 0))
+
+    def _add_gallery_thumbnail(self, img: Image.Image, index: int) -> None:
+        """Add a thumbnail to the gallery strip."""
+        # Create 90px tall thumbnail
+        thumb_h = 90
+        ratio = thumb_h / img.height
+        thumb_w = max(1, int(img.width * ratio))
+        thumb = img.resize((thumb_w, thumb_h), Image.LANCZOS)
+
+        # White background composite for display
+        bg = Image.new("RGBA", thumb.size, (255, 255, 255, 255))
+        composite = Image.alpha_composite(bg, thumb)
+        tk_img = ImageTk.PhotoImage(composite)
+        self._gallery_tk_thumbs.append(tk_img)
+
+        # Card frame
+        card = tk.Frame(self._gallery_inner, bg=BORDER_COLOR, padx=2, pady=2)
+        card.pack(side="left", padx=(0, 6), pady=4)
+
+        label = tk.Label(card, image=tk_img, bg="black", cursor="hand2")
+        label.pack()
+
+        # Number label
+        num_label = tk.Label(
+            card, text=f"#{index + 1}", bg=BORDER_COLOR, fg=TEXT_COLOR,
+            font=SMALL_FONT,
+        )
+        num_label.pack()
+
+        # Left-click: load this image back
+        label.bind("<Button-1>", lambda e, idx=index: self._load_gallery_image(idx))
+        # Right-click: remove from gallery
+        label.bind("<Button-3>", lambda e, idx=index, c=card: self._remove_gallery_image(idx, c))
+
+    def _load_gallery_image(self, index: int) -> None:
+        """Load a gallery image back as the current image."""
+        if index >= len(self._gallery_images):
+            return
+
+        img = self._gallery_images[index].copy()
+        self._crop_original_img = img
+        self._original_image_backup = img.copy()
+        self._generated_image = img.copy()  # For prompt mode validation
+
+        # Reset crop state and redisplay
+        self.state.crop_y = None
+        self._crop_accepted = False
+        self._display_crop_image()
+        self._update_next_button_state()
+
+    def _remove_gallery_image(self, index: int, card: tk.Frame) -> None:
+        """Remove an image from the gallery."""
+        card.destroy()
+        # Note: we leave the list entries as None to keep indices stable
+        if index < len(self._gallery_images):
+            self._gallery_images[index] = None
+        # Hide gallery if all removed
+        if all(img is None for img in self._gallery_images):
+            self._gallery_frame.pack_forget()
+            self._gallery_images.clear()
+            self._gallery_tk_thumbs.clear()
+
+    def _clear_gallery(self) -> None:
+        """Clear the gallery (called on step re-entry with new source)."""
+        for widget in self._gallery_inner.winfo_children():
+            widget.destroy()
+        self._gallery_images.clear()
+        self._gallery_tk_thumbs.clear()
+        self._gallery_frame.pack_forget()
 
     def validate(self) -> bool:
         # Add-to-existing mode: just needs sprite selection accepted
@@ -1938,6 +2125,7 @@ Click Next when your character looks right."""
         self._concept_frame.pack_forget()
         self._image_modify_frame.pack_forget()
         self._crop_frame.pack_forget()
+        self._gallery_frame.pack_forget()
 
         # Show sprite selector and preview frames
         self._sprite_selector_frame.pack(fill="both", expand=True, pady=(12, 0))
@@ -2490,8 +2678,16 @@ Click Next when your character looks right."""
             else:
                 self.schedule_callback(lambda: self._on_normalize_error("No image returned from API"))
 
+        except GeminiSafetyError:
+            msg = (
+                "Gemini blocked this image due to safety filters.\n\n"
+                "This can happen with certain character designs.\n"
+                "Try selecting a different base sprite."
+            )
+            self.schedule_callback(lambda m=msg: self._on_normalize_error(m))
         except Exception as e:
-            self.schedule_callback(lambda: self._on_normalize_error(str(e)))
+            error_msg = str(e)
+            self.schedule_callback(lambda m=error_msg: self._on_normalize_error(m))
 
     def _on_normalize_complete(self, normalized_image: Image.Image) -> None:
         """Handle successful normalization (main thread)."""

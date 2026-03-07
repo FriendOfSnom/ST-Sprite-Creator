@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Tuple
 # APPLICATION INFO
 # ═══════════════════════════════════════════════════════════════════════════════
 APP_NAME = "ST Sprite Creator"
-APP_VERSION = "1.3.0"
+APP_VERSION = "1.4.0"
 
 
 def get_resource_path(relative_path: str = "") -> Path:
@@ -171,14 +171,14 @@ def save_upload_username(username: str) -> None:
 # BACKGROUND COLOR
 # ═══════════════════════════════════════════════════════════════════════════════
 
-DEFAULT_BACKGROUND_COLOR = "black (#000000)"
+DEFAULT_BACKGROUND_COLOR = "lime green (#00FF00)"
 
 # Preset options for the settings dialog
 BACKGROUND_COLOR_PRESETS = [
     "black (#000000)",
     "light grey (#C0C0C0)",
     "lime green (#00FF00)",
-    "white (#FFFFFF)",
+    "blue (#0000FF)",
 ]
 
 

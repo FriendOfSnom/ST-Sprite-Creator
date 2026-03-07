@@ -916,8 +916,11 @@ def click_to_remove_background(image_path: Path, threshold: int = 30) -> bool:
         current_threshold = threshold_var.get()
 
         # Flood fill to find similar pixels
+        # Alpha-aware: also removes semi-transparent pixels that are likely
+        # leftover background from alpha matting
         pixels = working_img.load()
         width, height = working_img.size
+        target_a = target_pixel[3] if len(target_pixel) == 4 else 255
         visited = set()
         queue = [(img_x, img_y)]
 
@@ -933,9 +936,22 @@ def click_to_remove_background(image_path: Path, threshold: int = 30) -> bool:
 
             current = pixels[px, py]
             cr, cg, cb = current[0], current[1], current[2]
+            ca = current[3] if len(current) == 4 else 255
 
-            # Check if pixel is similar to target using current threshold from slider
-            if abs(cr - target_r) <= current_threshold and abs(cg - target_g) <= current_threshold and abs(cb - target_b) <= current_threshold:
+            # Skip already fully transparent
+            if ca == 0:
+                continue
+
+            # Semi-transparent pixels (alpha < 128) are likely leftover
+            # background from alpha matting — always remove and flood through
+            is_semi_transparent = ca < 128
+
+            # Check if pixel is similar to target using current threshold
+            color_match = (abs(cr - target_r) <= current_threshold and
+                           abs(cg - target_g) <= current_threshold and
+                           abs(cb - target_b) <= current_threshold)
+
+            if color_match or is_semi_transparent:
                 # Make transparent
                 pixels[px, py] = (cr, cg, cb, 0)
 

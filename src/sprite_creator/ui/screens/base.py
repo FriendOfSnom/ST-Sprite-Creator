@@ -203,9 +203,14 @@ class WizardStep(ABC):
         """Build a standardized tip bar below the step title."""
         if not self.STEP_TIP:
             return
+        tip_text = self.STEP_TIP
+        if "{bg_color}" in tip_text:
+            from ...config import load_background_color
+            bg_color_name = load_background_color().split("(")[0].strip()
+            tip_text = tip_text.replace("{bg_color}", bg_color_name)
         self._tip_label = tk.Label(
             parent,
-            text=self.STEP_TIP,
+            text=tip_text,
             bg=BG_COLOR,
             fg=WARNING_TEXT,
             font=SMALL_FONT,

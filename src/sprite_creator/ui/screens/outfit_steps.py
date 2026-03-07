@@ -33,6 +33,7 @@ from ...config import (
     BODY_FONT,
     SMALL_FONT,
     DATA_DIR,
+    load_background_color,
 )
 from ...api.gemini_client import (
     REMBG_EDGE_CLEANUP_TOLERANCE,
@@ -213,10 +214,8 @@ class OutfitReviewStep(WizardStep):
     Step 6: Outfit Review.
 
     Displays all generated outfits with per-outfit controls:
-    - Regenerate (same prompt)
-    - Regenerate (new prompt)
-    - Cleanup BG (tolerance/depth sliders)
-    - Switch to Manual BG removal
+    - Regenerate (same prompt / new prompt / custom)
+    - Switch between Auto and Manual BG removal
 
     Also provides global Accept/Regenerate All buttons.
     """
@@ -226,11 +225,10 @@ class OutfitReviewStep(WizardStep):
     STEP_NUMBER = 6
     STEP_TIP = (
         "\u2022 Auto mode removes the background automatically. "
-        "Adjust Tolerance (edge aggressiveness) and Depth (cleanup passes), then click Apply.\n"
+        "If it looks good, just proceed to the next step.\n"
         "\u2022 If auto mode damages the character (eats into arms/hair), "
         "switch to Manual mode. You'll clean up the background by hand "
-        "on the NEXT step using a click-to-remove tool.\n"
-        "\u2022 These Tolerance/Depth settings carry forward to all expressions for this outfit."
+        "on the NEXT step using a click-to-remove tool."
     )
     STEP_HELP = """Outfit Review
 
@@ -241,13 +239,13 @@ Don't worry about getting backgrounds perfect here. The Expression Review step h
 
 Focus on:
 • Approving outfits you like
-• Tuning the Tolerance/Depth sliders to remove black halos around lineart and hair edges
-• Making sure the sliders don't eat into clothing or body details
+• Checking that auto BG removal didn't eat into arms, hair, or clothing
+• If it did, switch that outfit to Manual mode
 
 If there are still some leftover background spots INSIDE the character (like between hair strands or under arms), don't stress - you can clean those up with the flood-fill tool on the next step.
 
 WHAT HAPPENS NEXT
-When you click Next, you'll proceed to the Expression Review step, where expressions (facial variations) are generated for EACH outfit shown here. The Tolerance/Depth settings you set here will be used as defaults for expression background removal.
+When you click Next, you'll proceed to the Expression Review step, where expressions (facial variations) are generated for EACH outfit shown here.
 
 ═══════════════════════════════════════════════════
 TROUBLESHOOTING - WHEN TO REGENERATE
@@ -267,7 +265,7 @@ REGENERATE if you see any of these issues:
 • Arm/body pixels look "eaten" or deleted
   This is caused by the automatic background removal (rembg) being too aggressive. You have two options:
   1. Click "Regen Same Outfit" - may produce a version that rembg handles better
-  2. Click "Switch to Manual BG Removal" - this keeps the original image with black background. You'll use the flood-fill tool on the next step to manually remove the background while preserving arm details.
+  2. Click "Switch to Manual BG Removal" - this keeps the original image with {bg_color} background. You'll use the flood-fill tool on the next step to manually remove the background while preserving arm details.
 
 ═══════════════════════════════════════════════════
 
@@ -291,26 +289,12 @@ If your custom description triggers content filters, you'll see an error message
 Note: Custom outfits only show "Regen Same Outfit" and "Custom..." buttons (no "Regen New Outfit" since the outfit was intentionally specified).
 
 BACKGROUND REMOVAL (Auto Mode)
-When an outfit shows the "rembg" sliders:
-
-Tolerance (0-150): How aggressively to remove edge pixels.
-- Low values (0-30): Only removes very similar colors
-- High values (100+): Removes more, but may eat into the character
-- Default: 50
-
-Depth (0-50): How many cleanup passes to run.
-- Low values (0-5): Light cleanup
-- High values (20+): More aggressive edge cleaning
-- Default: 5
-
-Click "Apply" after adjusting sliders to see the result.
-
-These settings carry forward to expression generation, so getting them right here saves time later.
+Auto mode uses AI-powered background removal (rembg with alpha matting) to strip the background automatically. Check that the result looks clean — especially around arms, hair, and clothing edges.
 
 MANUAL MODE
-Click "Switch to Manual BG Removal" to use click-based removal instead. In manual mode, you click on areas to remove (flood-fill style).
+If auto mode damages the character (eating into arms/hair), click "Switch to Manual BG Removal". In manual mode, you'll use the click-based flood-fill tool on the next step to remove the background by hand.
 
-Click "Switch to Auto BG Removal" to return to slider-based mode.
+Click "Switch to Auto BG Removal" to return to automatic mode.
 
 NAVIGATION
 Use mouse wheel to scroll horizontally through outfits.
@@ -370,12 +354,13 @@ When satisfied with all outfits, click Next to proceed to expression generation.
 
         self._build_tip_bar(parent)
 
-        # Black background warning
+        # Background color warning (dynamic based on configured BG color)
+        bg_color_name = load_background_color().split("(")[0].strip()
         tk.Label(
             parent,
-            text="⚠️ Black areas = BACKGROUND that still needs removing. "
-                 "Use sliders + Apply, or switch to Manual mode. "
-                 "Leftover black = black box around your character in-game.",
+            text=f"⚠️ {bg_color_name.capitalize()} areas = BACKGROUND that still needs removing. "
+                 "If auto mode damages the character, switch to Manual — you can clean up on the next step. "
+                 f"Leftover {bg_color_name} = colored box around your character in-game.",
             bg=BG_COLOR,
             fg=CAUTION_TEXT,
             font=SMALL_FONT,
@@ -611,6 +596,7 @@ When satisfied with all outfits, click Next to proceed to expression generation.
             self.state.gender_style,
             self.state.selected_outfits,
             self.state.outfit_prompt_config,
+            background_color=load_background_color(),
         )
 
         # Create outfits directory
@@ -842,46 +828,38 @@ When satisfied with all outfits, click Next to proceed to expression generation.
         mode = self.state.outfit_bg_modes.get(idx, "rembg")
 
         if mode == "rembg":
-            # === GROUP 2: Cleanup sliders + Apply (all horizontal) ===
-            cleanup_frame = tk.Frame(card, bg=CARD_BG)
-            cleanup_frame.pack(pady=(1, 1))
+            # NOTE: Edge cleanup sliders (Tolerance/Depth) are disabled.
+            # Alpha matting in rembg handles edge halos better than post-process
+            # cleanup. DO NOT remove this commented code — it may be re-enabled
+            # if alpha matting proves insufficient for certain image types.
+            #
+            # # === GROUP 2: Cleanup sliders + Apply (all horizontal) ===
+            # cleanup_frame = tk.Frame(card, bg=CARD_BG)
+            # cleanup_frame.pack(pady=(1, 1))
+            # tk.Label(cleanup_frame, text="Tolerance:", font=("", 8), bg=CARD_BG, fg=TEXT_SECONDARY).pack(side="left")
+            # restored_tol = REMBG_EDGE_CLEANUP_TOLERANCE
+            # if self.state.outfit_cleanup_settings and idx < len(self.state.outfit_cleanup_settings):
+            #     restored_tol = self.state.outfit_cleanup_settings[idx][0]
+            # tol_var = tk.IntVar(value=restored_tol)
+            # self._tolerance_vars.append(tol_var)
+            # tk.Scale(cleanup_frame, from_=0, to=150, orient="horizontal",
+            #     variable=tol_var, length=280, showvalue=True,
+            #     font=("", 7), bg=CARD_BG, highlightthickness=0).pack(side="left")
+            # tk.Label(cleanup_frame, text="Depth:", font=("", 8), bg=CARD_BG, fg=TEXT_SECONDARY).pack(side="left", padx=(4, 0))
+            # restored_depth = REMBG_EDGE_CLEANUP_PASSES
+            # if self.state.outfit_cleanup_settings and idx < len(self.state.outfit_cleanup_settings):
+            #     restored_depth = self.state.outfit_cleanup_settings[idx][1]
+            # depth_var = tk.IntVar(value=restored_depth)
+            # self._depth_vars.append(depth_var)
+            # tk.Scale(cleanup_frame, from_=0, to=50, orient="horizontal",
+            #     variable=depth_var, length=280, showvalue=True,
+            #     font=("", 7), bg=CARD_BG, highlightthickness=0).pack(side="left")
+            # create_secondary_button(cleanup_frame, "Apply",
+            #     lambda i=idx: self._apply_cleanup(i), width=6).pack(side="left", padx=(4, 0))
 
-            # Tolerance label and slider
-            tk.Label(cleanup_frame, text="Tolerance:", font=("", 8), bg=CARD_BG, fg=TEXT_SECONDARY).pack(side="left")
-
-            restored_tol = REMBG_EDGE_CLEANUP_TOLERANCE
-            if self.state.outfit_cleanup_settings and idx < len(self.state.outfit_cleanup_settings):
-                restored_tol = self.state.outfit_cleanup_settings[idx][0]
-            tol_var = tk.IntVar(value=restored_tol)
-            self._tolerance_vars.append(tol_var)
-
-            tk.Scale(
-                cleanup_frame, from_=0, to=150, orient="horizontal",
-                variable=tol_var, length=280, showvalue=True,
-                font=("", 7), bg=CARD_BG, highlightthickness=0
-            ).pack(side="left")
-
-            # Depth label and slider
-            tk.Label(cleanup_frame, text="Depth:", font=("", 8), bg=CARD_BG, fg=TEXT_SECONDARY).pack(side="left", padx=(4, 0))
-
-            restored_depth = REMBG_EDGE_CLEANUP_PASSES
-            if self.state.outfit_cleanup_settings and idx < len(self.state.outfit_cleanup_settings):
-                restored_depth = self.state.outfit_cleanup_settings[idx][1]
-            depth_var = tk.IntVar(value=restored_depth)
-            self._depth_vars.append(depth_var)
-
-            tk.Scale(
-                cleanup_frame, from_=0, to=50, orient="horizontal",
-                variable=depth_var, length=280, showvalue=True,
-                font=("", 7), bg=CARD_BG, highlightthickness=0
-            ).pack(side="left")
-
-            # Apply button
-            create_secondary_button(
-                cleanup_frame, "Apply",
-                lambda i=idx: self._apply_cleanup(i),
-                width=6
-            ).pack(side="left", padx=(4, 0))
+            # Placeholder vars (keep index alignment for state save/restore)
+            self._tolerance_vars.append(tk.IntVar(value=0))
+            self._depth_vars.append(tk.IntVar(value=0))
 
             # === GROUP 3: BG Mode Switch ===
             create_secondary_button(
@@ -1196,6 +1174,7 @@ When satisfied with all outfits, click Next to proceed to expression generation.
                 self.state.gender_style,
                 [outfit_key],
                 self.state.outfit_prompt_config,
+                background_color=load_background_color(),
             )
             outfit_desc = new_prompt_dict[outfit_key]
 

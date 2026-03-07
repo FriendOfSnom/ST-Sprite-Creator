@@ -47,9 +47,9 @@ from .exceptions import GeminiAPIError, GeminiQuotaError, GeminiSafetyError
 
 REMBG_MODEL = "isnet-anime"
 REMBG_ALPHA_MATTING = True  # Alpha matting erodes mask edges to reduce halos
-REMBG_ALPHA_MATTING_FOREGROUND_THRESHOLD = 240
-REMBG_ALPHA_MATTING_BACKGROUND_THRESHOLD = 10
-REMBG_ALPHA_MATTING_ERODE_SIZE = 15  # Conservative erosion (lower = less aggressive)
+REMBG_ALPHA_MATTING_FOREGROUND_THRESHOLD = 220  # Lower — with contrasting BG, rembg is confident about foreground
+REMBG_ALPHA_MATTING_BACKGROUND_THRESHOLD = 55   # Higher — semi-transparent leftovers are safely background with contrast
+REMBG_ALPHA_MATTING_ERODE_SIZE = 30  # Higher erosion — tested 25-50, 30 is the sweet spot before eating into edges at 40+
 REMBG_POST_PROCESS_MASK = True
 
 # Edge cleanup: Remove remaining halo pixels after rembg by color matching

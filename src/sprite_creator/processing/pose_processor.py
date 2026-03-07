@@ -26,6 +26,7 @@ from ..api.gemini_client import (
 from ..api.prompt_builders import (
     build_outfit_prompt,
     build_standard_school_uniform_prompt,
+    _filter_colors_for_bg,
 )
 from ..config import (
     FEMALE_ARCHETYPES,
@@ -190,7 +191,8 @@ def _generate_outfit_with_safety_recovery(
                 base_prompt = fallback_tiers[0] if fallback_tiers else "Pink undergarments"
 
             if is_female:
-                color = random.choice(UNDERWEAR_COLORS)
+                filtered_underwear = _filter_colors_for_bg(UNDERWEAR_COLORS, background_color)
+                color = random.choice(filtered_underwear)
                 prompt_to_try = f"{color} {base_prompt.lower()}"
             else:
                 prompt_to_try = base_prompt

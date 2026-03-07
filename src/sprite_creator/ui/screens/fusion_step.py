@@ -17,6 +17,9 @@ from PIL import Image, ImageTk
 from ...config import (
     NAMES_CSV_PATH,
     GENDER_ARCHETYPES,
+    BACKGROUND_COLOR_PRESETS,
+    load_background_color,
+    save_background_color,
     BG_COLOR,
     CARD_BG,
     TEXT_COLOR,
@@ -34,6 +37,7 @@ from ..tk_common import (
 )
 from ..dialogs import load_name_pool, pick_random_name
 from .base import WizardStep, WizardState
+from ...api.exceptions import GeminiSafetyError
 from ...logging_utils import log_info, log_error
 
 
@@ -47,6 +51,10 @@ class FusionStep(WizardStep):
 
     STEP_ID = "fusion"
     STEP_TITLE = "Fusion"
+    STEP_TIP = (
+        "Select two character images and fill in the settings, then click FUSION! "
+        "to merge them into a new character. You can regenerate until you're happy with the result."
+    )
     STEP_HELP = """Character Fusion
 
 This step allows you to create a new character by merging two existing characters.
@@ -105,6 +113,7 @@ TROUBLESHOOTING
         self._hair_var: Optional[tk.StringVar] = None
         self._hair_frame: Optional[tk.Frame] = None
         self._hair_menu: Optional[tk.OptionMenu] = None
+        self._bg_color_var: Optional[tk.StringVar] = None
         self._voice_indicator: Optional[tk.Label] = None
         self._name_entry: Optional[tk.Entry] = None
 
@@ -138,7 +147,9 @@ TROUBLESHOOTING
             bg=BG_COLOR,
             fg=TEXT_COLOR,
             font=PAGE_TITLE_FONT,
-        ).pack(pady=(0, 16))
+        ).pack(pady=(0, 8))
+
+        self._build_tip_bar(parent)
 
         # Settings section (top)
         self._build_settings_section(parent)
@@ -259,6 +270,28 @@ TROUBLESHOOTING
         self._hair_menu = tk.OptionMenu(self._hair_frame, self._hair_var, *HAIR_LENGTHS)
         self._hair_menu.configure(width=15, bg="#1E1E1E", fg=TEXT_COLOR)
         self._hair_menu.pack(side="left")
+
+        # Background color selection (same row)
+        bg_frame = tk.Frame(row_frame, bg=CARD_BG)
+        bg_frame.pack(side="left", padx=(30, 0))
+
+        tk.Label(
+            bg_frame,
+            text="BG:",
+            bg=CARD_BG,
+            fg=TEXT_COLOR,
+            font=BODY_FONT,
+        ).pack(side="left", padx=(0, 8))
+
+        self._bg_color_var = tk.StringVar(value=load_background_color())
+        bg_color_menu = tk.OptionMenu(bg_frame, self._bg_color_var, *BACKGROUND_COLOR_PRESETS)
+        bg_color_menu.configure(width=20, bg="#1E1E1E", fg=TEXT_COLOR)
+        bg_color_menu.pack(side="left")
+
+        tk.Label(
+            bg_frame, text="Avoid your character's colors",
+            bg=CARD_BG, fg=TEXT_SECONDARY, font=SMALL_FONT,
+        ).pack(side="left", padx=(8, 0))
 
     def _build_images_section(self, parent: tk.Frame) -> None:
         """Build the image slots section."""
@@ -522,6 +555,10 @@ TROUBLESHOOTING
         self.state.archetype_label = self._arch_var.get()
         self.state.hair_length = self._hair_var.get() if self._voice_var.get() == "girl" else ""
 
+        # Save background color to config
+        if self._bg_color_var and self._bg_color_var.get():
+            save_background_color(self._bg_color_var.get())
+
         self._is_generating = True
         self._fusion_btn.configure(state="disabled")
         self._status_label.configure(text="Generating fused character...", fg=ACCENT_COLOR)
@@ -577,10 +614,17 @@ TROUBLESHOOTING
             else:
                 self.schedule_callback(lambda: self._on_fusion_error("No image returned"))
 
+        except GeminiSafetyError:
+            msg = (
+                "Gemini blocked this content due to safety filters.\n\n"
+                "Try using different source images or descriptions."
+            )
+            log_error("Fusion blocked by safety filters")
+            self.schedule_callback(lambda m=msg: self._on_fusion_error(m))
         except Exception as e:
             error_msg = str(e)
             log_error(f"Fusion failed: {error_msg}")
-            self.schedule_callback(lambda: self._on_fusion_error(error_msg))
+            self.schedule_callback(lambda m=error_msg: self._on_fusion_error(m))
 
     def _on_fusion_complete(self, result_img: Image.Image) -> None:
         """Handle successful fusion generation."""
@@ -627,6 +671,10 @@ TROUBLESHOOTING
         if self.state.hair_length:
             self._hair_var.set(self.state.hair_length)
         self._update_hair_length_visibility()
+
+        # Restore background color from config
+        if self._bg_color_var:
+            self._bg_color_var.set(load_background_color())
 
         # Restore images
         if self.state.fusion_left_path:
@@ -677,5 +725,9 @@ TROUBLESHOOTING
         self.state.archetype_label = self._arch_var.get()
         self.state.hair_length = self._hair_var.get() if self._voice_var.get() == "girl" else ""
         self.state.source_mode = "fusion"
+
+        # Save background color to config
+        if self._bg_color_var and self._bg_color_var.get():
+            save_background_color(self._bg_color_var.get())
 
         return True

@@ -63,7 +63,7 @@ class ExpressionReviewStep(WizardStep):
 This step shows all generated expressions for each outfit.
 
 HOW THIS RELATES TO THE PREVIOUS STEP
-The background removal settings (Tolerance/Depth) you set on the Outfit Review step were used to process these expressions. If backgrounds look good here, those settings worked well!
+The same auto background removal from the Outfit Review step was applied to these expressions. If backgrounds look good here, great!
 
 If backgrounds need work, use the "Remove BG" button below each expression to fix them individually.
 
@@ -113,7 +113,7 @@ Click "Remove BG" to open the editor:
 
 6. Click ACCEPT when the background is fully removed.
 
-Tip: If you switched to "Manual Mode" on the previous step because rembg was eating arm pixels, the "Remove BG" tool here will start from the original black-background image, letting you manually remove the background while preserving the full character.
+Tip: If you switched to "Manual Mode" on the previous step because rembg was eating arm pixels, the "Remove BG" tool here will start from the original {bg_color}-background image, letting you manually remove the background while preserving the full character.
 
 ═══════════════════════════════════════════════════
 
@@ -139,7 +139,7 @@ Each expression has a "Remove BG" button that opens a click-based flood-fill edi
 
 The starting point depends on the outfit's mode from the previous step:
 - Auto mode: Starts from the rembg-processed result (use to touch up remaining artifacts)
-- Manual mode: Starts from the original black-background image (use for full manual removal)
+- Manual mode: Starts from the original {bg_color}-background image (use for full manual removal)
 
 For existing outfits in add-to-character mode, expressions always use manual removal mode.
 
@@ -191,6 +191,7 @@ When adding expressions to existing outfits:
         self._current_gen_progress: str = ""             # live progress text for inline display
         self._first_outfit_shown: bool = False           # True after first outfit's cards shown
         self._loading_overlay: Optional[tk.Frame] = None  # Overlay on canvas for loading state
+        self._bg_var: Optional[tk.StringVar] = None  # Preview background selection
 
     def build_ui(self, parent: tk.Frame) -> None:
         parent.configure(bg=BG_COLOR)
@@ -207,8 +208,24 @@ When adding expressions to existing outfits:
             font=PAGE_TITLE_FONT,
         ).pack(side="left")
 
-        # Note: BG mode is determined per-outfit from the Outfits step
-        # (removed global BG mode toggle that didn't do anything)
+        # Background preview dropdown (same as outfit step)
+        bg_frame = tk.Frame(header, bg=BG_COLOR)
+        bg_frame.pack(side="right")
+
+        tk.Label(
+            bg_frame,
+            text="Preview BG:",
+            bg=BG_COLOR,
+            fg=TEXT_SECONDARY,
+            font=SMALL_FONT,
+        ).pack(side="left", padx=(0, 4))
+
+        self._bg_var = tk.StringVar(value="White")
+        bg_options = self._get_background_options()
+        bg_menu = tk.OptionMenu(bg_frame, self._bg_var, *[name for name, _ in bg_options])
+        bg_menu.configure(width=12, bg=CARD_BG, fg=TEXT_COLOR)
+        bg_menu.pack(side="left")
+        self._bg_var.trace_add("write", lambda *_: self._show_outfit_expressions())
 
         # Progress indicator (centered) with prev/next arrows
         progress_frame = tk.Frame(parent, bg=BG_COLOR)
@@ -1027,8 +1044,9 @@ When adding expressions to existing outfits:
             return {}, {}
 
         # Load base image as b64 for Gemini
+        from ...config import load_background_color
         image_b64 = load_image_as_base64(base_path)
-        background_color = "solid black (#000000)"
+        background_color = load_background_color()
 
         expr_paths: Dict[str, Path] = {}
         cleanup_dict: Dict[str, Tuple[bytes, bytes]] = {}
@@ -1058,8 +1076,13 @@ When adding expressions to existing outfits:
                     expr_paths[expr_key] = final_path
                     cleanup_dict[expr_key] = (original_bytes, original_bytes)
                     log_info(f"Saved expression {expr_key} to {final_path}")
+            except GeminiSafetyError:
+                log_error("Expression generation", f"Expression {expr_key} blocked by safety filters")
+                self.state.failed_expressions.add((f"existing_{pose_letter}", expr_key))
+                # Continue to next expression
             except Exception as e:
                 log_error("Expression generation", f"Failed to generate expression {expr_key}: {e}")
+                self.state.failed_expressions.add((f"existing_{pose_letter}", expr_key))
                 # Continue to next expression
 
         log_generation_complete(f"existing_expressions_{pose_letter}", True, f"Generated {len(expr_paths)} expressions")
@@ -1273,6 +1296,44 @@ When adding expressions to existing outfits:
         if hasattr(self.wizard, '_on_content_configure'):
             self.wizard._on_content_configure()
 
+    def _get_background_options(self) -> List[Tuple[str, Optional[Path]]]:
+        """Get available background options for preview."""
+        from ...config import DATA_DIR
+        options = [
+            ("Black", None),
+            ("White", None),
+        ]
+        bg_dir = DATA_DIR / "reference_sprites" / "backgrounds"
+        if bg_dir.is_dir():
+            for p in sorted(bg_dir.iterdir()):
+                if p.suffix.lower() in (".png", ".jpg", ".jpeg"):
+                    options.append((p.stem, p))
+        return options
+
+    def _create_preview_bg(self, img: Image.Image) -> Image.Image:
+        """Create background image based on current preview BG selection."""
+        bg_name = self._bg_var.get() if self._bg_var else "White"
+        bg_options = dict(self._get_background_options())
+        bg_path = bg_options.get(bg_name)
+
+        if bg_name == "Black":
+            return Image.new("RGBA", img.size, (0, 0, 0, 255))
+        elif bg_name == "White":
+            return Image.new("RGBA", img.size, (255, 255, 255, 255))
+        elif bg_path and bg_path.exists():
+            bg = Image.open(bg_path).convert("RGBA")
+            bg_w, bg_h = bg.size
+            char_w, char_h = img.size
+            if bg_w < char_w or bg_h < char_h:
+                scale = max(char_w / bg_w, char_h / bg_h)
+                bg = bg.resize((int(bg_w * scale), int(bg_h * scale)), Image.LANCZOS)
+                bg_w, bg_h = bg.size
+            left = (bg_w - char_w) // 2
+            top = bg_h - char_h
+            return bg.crop((left, top, left + char_w, top + char_h))
+        else:
+            return Image.new("RGBA", img.size, (255, 255, 255, 255))
+
     def _build_expression_card(self, outfit_name: str, expr_key: str, path: Path, max_h: int) -> tk.Frame:
         """Build a single expression card (matching outfit step style)."""
         card = tk.Frame(self._inner_frame, bg=CARD_BG, padx=6, pady=4)
@@ -1294,8 +1355,8 @@ When adding expressions to existing outfits:
                 new_w = int(img.width * ratio)
                 img = img.resize((new_w, max_h), Image.LANCZOS)
 
-            # Create white background composite
-            bg = Image.new("RGBA", img.size, (255, 255, 255, 255))
+            # Create background composite using selected preview BG
+            bg = self._create_preview_bg(img)
             composite = Image.alpha_composite(bg, img)
 
             tk_img = ImageTk.PhotoImage(composite)
@@ -1461,8 +1522,8 @@ When adding expressions to existing outfits:
                 new_w = int(img.width * ratio)
                 img = img.resize((new_w, max_h), Image.LANCZOS)
 
-            # Create white background composite
-            bg = Image.new("RGBA", img.size, (255, 255, 255, 255))
+            # Create background composite using selected preview BG
+            bg = self._create_preview_bg(img)
             composite = Image.alpha_composite(bg, img)
 
             tk_img = ImageTk.PhotoImage(composite)
@@ -1634,6 +1695,12 @@ When adding expressions to existing outfits:
                     lambda o=outfit_name, e=expr_key, p=new_path, ob=orig_bytes, rb=rembg_bytes:
                         self._on_single_expr_complete(o, e, p, ob, rb)
                 )
+            except GeminiSafetyError:
+                msg = (
+                    "Gemini blocked this expression due to safety filters.\n\n"
+                    "Try regenerating — results vary between attempts."
+                )
+                self.schedule_callback(lambda m=msg: self._on_generation_error(m, is_single_regen=True))
             except Exception as e:
                 error_msg = str(e)
                 self.schedule_callback(lambda msg=error_msg: self._on_generation_error(msg, is_single_regen=True))
@@ -1692,8 +1759,9 @@ When adding expressions to existing outfits:
                 raise ValueError(f"Expression {expr_key} not found in master list or session expressions")
 
             # Generate the expression
+            from ...config import load_background_color
             image_b64 = load_image_as_base64(base_path)
-            background_color = "solid black (#000000)"
+            background_color = load_background_color()
             # Use add_to_existing=True for upscale instruction since source is already scaled
             prompt = build_expression_prompt(expr_desc, background_color, add_to_existing=True, archetype_label=self.state.archetype_label)
 
@@ -1743,7 +1811,7 @@ When adding expressions to existing outfits:
         # Get bg removal mode from outfit review
         bg_removal_mode = self._get_bg_mode_for_outfit(outfit_name)
 
-        new_path = regenerate_single_expression(
+        result = regenerate_single_expression(
             api_key=self.state.api_key,
             outfit_path=outfit_path,
             out_dir=out_dir,
@@ -1753,10 +1821,11 @@ When adding expressions to existing outfits:
             edge_cleanup_passes=edge_cleanup_passes,
             bg_removal_mode=bg_removal_mode,
             archetype_label=self.state.archetype_label,
+            for_interactive_review=True,
         )
 
-        # Regular outfits don't return cleanup data
-        return (new_path, None, None)
+        # Result is (path, original_bytes, rembg_bytes) tuple
+        return result
 
     def _on_single_expr_complete(
         self, outfit_name: str, expr_key: str, new_path: Path,
@@ -1834,13 +1903,12 @@ When adding expressions to existing outfits:
 
         cleanup_data = self._expression_cleanup_data[outfit_name].get(expr_key)
         if not cleanup_data:
-            # Fallback: generate cleanup data from the file on disk
+            # Fallback: use the file on disk as-is (it already has rembg applied).
+            # Do NOT run strip_background_ai again — double-processing causes artifacts.
             try:
-                from ...api.gemini_client import strip_background_ai
                 with open(path, "rb") as f:
-                    orig_bytes = f.read()
-                rembg_bytes = strip_background_ai(orig_bytes)
-                cleanup_data = (orig_bytes, rembg_bytes)
+                    disk_bytes = f.read()
+                cleanup_data = (disk_bytes, disk_bytes)
                 self._expression_cleanup_data[outfit_name][expr_key] = cleanup_data
             except Exception as e:
                 messagebox.showerror("Error", f"Could not prepare image for manual BG edit: {e}")

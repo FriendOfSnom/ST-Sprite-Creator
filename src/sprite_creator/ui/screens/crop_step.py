@@ -49,6 +49,10 @@ class CropStep(WizardStep):
 
     STEP_ID = "crop"
     STEP_TITLE = "Crop"
+    STEP_TIP = (
+        "Click on the image to set the crop line at mid-thigh level. "
+        "Do NOT include feet — they cause issues with background removal."
+    )
     STEP_HELP = """Mid-Thigh Crop Selection
 
 Click on the image to set where the character should be cropped.
@@ -84,6 +88,8 @@ You can go back if you need to change your source image."""
             fg=TEXT_COLOR,
             font=PAGE_TITLE_FONT,
         ).pack(pady=(0, 8))
+
+        self._build_tip_bar(parent)
 
         # Instructions
         self._instruction_label = tk.Label(

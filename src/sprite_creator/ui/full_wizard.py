@@ -385,6 +385,12 @@ class FullWizard:
 
         help_text = step.STEP_HELP
 
+        # Substitute {bg_color} placeholder with configured background color name
+        if "{bg_color}" in help_text:
+            from ..config import load_background_color
+            bg_color_name = load_background_color().split("(")[0].strip()
+            help_text = help_text.replace("{bg_color}", bg_color_name)
+
         # Make help button prominent on all steps for better visibility
         use_prominent = True
 
