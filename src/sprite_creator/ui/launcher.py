@@ -75,6 +75,15 @@ Add new content to an existing character folder:
 - Preserves all existing settings (voice, name, eye line, etc.)
 - Full-size backup images are preferred for best quality
 
+Gemini Workshop
+A quick Gemini-powered image tool:
+- Load an image + prompt for img2img editing (e.g. "remove cigarette")
+- Or just type a prompt for text-to-image generation
+- Optional Student Transfer style references for consistent art style
+- Auto and manual background removal built in
+- History gallery: keep results you like, then click to reuse as input
+- Save input or result images directly to disk
+
 Expression Sheet Generator
 Create expression reference sheets from existing character folders.
 Use this if you already have characters and want visual reference sheets.
@@ -224,7 +233,8 @@ class LauncherWindow:
     """
 
     def __init__(self, on_sprite_creator: Callable, on_expression_sheets: Callable,
-                 on_sprite_tester: Callable, on_add_to_existing: Optional[Callable] = None):
+                 on_sprite_tester: Callable, on_add_to_existing: Optional[Callable] = None,
+                 on_gemini_workshop: Optional[Callable] = None):
         """
         Initialize the launcher window.
 
@@ -233,11 +243,13 @@ class LauncherWindow:
             on_expression_sheets: Callback when Expression Sheet Generator is selected
             on_sprite_tester: Callback when Sprite Tester is selected
             on_add_to_existing: Callback when Add to Character is selected
+            on_gemini_workshop: Callback when Gemini Workshop is selected
         """
         self._on_sprite_creator = on_sprite_creator
         self._on_expression_sheets = on_expression_sheets
         self._on_sprite_tester = on_sprite_tester
         self._on_add_to_existing = on_add_to_existing
+        self._on_gemini_workshop = on_gemini_workshop
 
         self.root = tk.Tk()
         self.root.title(f"{APP_NAME} v{APP_VERSION}")
@@ -328,14 +340,15 @@ class LauncherWindow:
         )
         subtitle_label.pack(pady=(0, 10))
 
-        # Tool cards container (2x2 grid)
+        # Tool cards container (3-column, 2-tier grid)
         cards_frame = tk.Frame(main_frame, bg=BG_COLOR)
         cards_frame.pack(fill="both", expand=True)
 
         cards_frame.columnconfigure(0, weight=1)
         cards_frame.columnconfigure(1, weight=1)
+        cards_frame.columnconfigure(2, weight=1)
 
-        # Row 0: Sprite Creator (primary) + Add to Character
+        # Row 0 (Creation tier): Sprite Creator + Add to Character + Gemini Workshop
         card1 = ToolCard(
             cards_frame,
             title="Character Sprite\nCreator",
@@ -356,8 +369,18 @@ class LauncherWindow:
         )
         card2.grid(row=0, column=1, padx=8, pady=6, sticky="nsew")
 
-        # Row 1: Expression Sheets + Sprite Tester
         card3 = ToolCard(
+            cards_frame,
+            title="Gemini\nWorkshop",
+            description="Quick img2img editing or text-to-image generation with Gemini.",
+            icon_text="\U0001F528",  # Hammer emoji
+            primary=False,
+            on_click=self._select_gemini_workshop,
+        )
+        card3.grid(row=0, column=2, padx=8, pady=6, sticky="nsew")
+
+        # Row 1 (Tools tier): Expression Sheets + Sprite Tester + Sprite Database
+        card4 = ToolCard(
             cards_frame,
             title="Expression Sheet\nGenerator",
             description="Create expression reference sheets from existing character folders.",
@@ -365,9 +388,9 @@ class LauncherWindow:
             primary=False,
             on_click=self._select_expression_sheets,
         )
-        card3.grid(row=1, column=0, padx=8, pady=6, sticky="nsew")
+        card4.grid(row=1, column=0, padx=8, pady=6, sticky="nsew")
 
-        card4 = ToolCard(
+        card5 = ToolCard(
             cards_frame,
             title="Sprite\nTester",
             description="Preview character sprites in a Ren'Py environment with outfit and expression switching.",
@@ -375,10 +398,9 @@ class LauncherWindow:
             primary=False,
             on_click=self._select_sprite_tester,
         )
-        card4.grid(row=1, column=1, padx=8, pady=6, sticky="nsew")
+        card5.grid(row=1, column=1, padx=8, pady=6, sticky="nsew")
 
-        # Row 2: Sprite Database (centered, spans both columns)
-        card5 = ToolCard(
+        card6 = ToolCard(
             cards_frame,
             title="Sprite\nDatabase",
             description="Browse characters uploaded by the community.",
@@ -386,7 +408,7 @@ class LauncherWindow:
             primary=False,
             on_click=self._open_sprite_database,
         )
-        card5.grid(row=2, column=0, columnspan=2, padx=8, pady=6)
+        card6.grid(row=1, column=2, padx=8, pady=6, sticky="nsew")
 
         # Footer
         footer_frame = tk.Frame(main_frame, bg=BG_COLOR)
@@ -490,6 +512,12 @@ class LauncherWindow:
     def _select_add_to_existing(self):
         """Handle Add to Character selection."""
         self._result = "add_to_existing"
+        self._unbind_scroll()
+        self.root.quit()
+
+    def _select_gemini_workshop(self):
+        """Handle Gemini Workshop selection."""
+        self._result = "gemini_workshop"
         self._unbind_scroll()
         self.root.quit()
 
@@ -674,7 +702,7 @@ class LauncherWindow:
         Run the launcher and return the selected tool.
 
         Returns:
-            "sprite_creator", "expression_sheets", "sprite_tester", "add_to_existing", or None if closed
+            "sprite_creator", "expression_sheets", "sprite_tester", "add_to_existing", "gemini_workshop", or None if closed
         """
         self.root.mainloop()
         result = self._result

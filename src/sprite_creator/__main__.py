@@ -76,7 +76,10 @@ def main():
     def on_add_to_existing():
         pass
 
-    launcher = LauncherWindow(on_sprite_creator, on_expression_sheets, on_sprite_tester, on_add_to_existing)
+    def on_gemini_workshop():
+        pass
+
+    launcher = LauncherWindow(on_sprite_creator, on_expression_sheets, on_sprite_tester, on_add_to_existing, on_gemini_workshop)
     selected_tool = launcher.run()
 
     if not selected_tool:
@@ -96,6 +99,8 @@ def main():
         run_sprite_tester()
     elif selected_tool == "add_to_existing":
         run_add_to_existing()
+    elif selected_tool == "gemini_workshop":
+        run_gemini_workshop()
 
 
 def run_sprite_creator():
@@ -402,6 +407,36 @@ def run_add_to_existing():
         print("[INFO] Wizard exited.")
     except Exception as e:
         log_exception(f"Error in add to existing wizard: {e}")
+        messagebox.showerror("Error", f"An error occurred:\n{e}")
+        print(f"[ERROR] {e}")
+        import traceback
+        traceback.print_exc()
+
+    # Return to launcher
+    main()
+
+
+def run_gemini_workshop():
+    """Run the Gemini Workshop standalone tool."""
+    from .ui.api_setup import ensure_api_key
+    from .ui.gemini_workshop import GeminiWorkshop
+
+    print("\n[INFO] Starting Gemini Workshop...")
+
+    # Ensure API key is configured
+    api_key = ensure_api_key()
+    if not api_key:
+        print("[INFO] API key setup cancelled. Returning to launcher.")
+        main()
+        return
+
+    try:
+        log_info("Starting Gemini Workshop")
+        workshop = GeminiWorkshop(api_key)
+        workshop.run()
+        log_info("Gemini Workshop closed")
+    except Exception as e:
+        log_exception(f"Error in Gemini Workshop: {e}")
         messagebox.showerror("Error", f"An error occurred:\n{e}")
         print(f"[ERROR] {e}")
         import traceback

@@ -15,6 +15,7 @@ AI-powered character sprite generator for Student Transfer, using Google Gemini.
 - **Scale & height crop** with 77 reference sprites for accurate in-game sizing
 - **Expression sheet generation** for visual reference
 - **Sprite Tester** to preview characters in a simulated Ren'Py environment
+- **Gemini Workshop** for quick img2img edits or text-to-image generation with style references
 - **Sprite database** upload and download community-created characters
 
 ---
@@ -81,6 +82,15 @@ Add new outfits or expressions to an existing character folder:
 - Add missing expressions or replace existing ones that came out poorly
 - New outfits become new pose letters (c, d, e...)
 - Existing settings (voice, name, eye line) are preserved
+
+### Gemini Workshop
+
+A standalone Gemini-powered image tool, separate from the main character pipeline:
+
+- Load an image + prompt for img2img editing, or just type a prompt for text-to-image
+- Optional Student Transfer style references for consistent art style
+- Auto and manual background removal
+- History gallery to keep results and click to reuse as input for iterative editing
 
 ### Expression Sheet Generator
 

@@ -585,7 +585,6 @@ When satisfied with all outfits, click Next to proceed to expression generation.
             from ...api.gemini_client import call_gemini_image_edit, load_image_as_base64
             from ...api.prompt_builders import build_normalize_existing_character_prompt
 
-            from ...config import load_background_color
             image_b64 = load_image_as_base64(self.state.base_pose_path)
             prompt = build_normalize_existing_character_prompt(background_color=load_background_color())
             result_bytes = call_gemini_image_edit(

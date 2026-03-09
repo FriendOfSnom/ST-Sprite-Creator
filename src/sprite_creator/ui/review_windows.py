@@ -736,7 +736,7 @@ def review_initial_base_pose(
     return decision["choice"], decision["use_as_outfit"], decision["additional_text"]
 
 
-def click_to_remove_background(image_path: Path, threshold: int = 50) -> bool:
+def click_to_remove_background(image_path: Path, threshold: int = 50, canvas_bg: str = "white") -> bool:
     """
     Interactive UI for manually removing black background by clicking.
 
@@ -809,7 +809,7 @@ def click_to_remove_background(image_path: Path, threshold: int = 50) -> bool:
         canvas_frame,
         width=canvas_vis_w,
         height=canvas_vis_h,
-        bg="white",  # White background so transparent areas are visible
+        bg=canvas_bg,  # Background color so transparent areas are visible
         highlightthickness=0,
         cursor="none",  # Hide default cursor
         scrollregion=(0, 0, display_w, display_h),
