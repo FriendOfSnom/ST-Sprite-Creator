@@ -55,3 +55,20 @@ Thumbs.db
 nul
 # Reference ST character folders (data, not app code)
 normal_ST_Character_Folders/
+
+# Claude scratch: images/comparisons shared between you and Claude (never committed)
+claude_io/
+
+# SpriteLab: research images and measurement output.
+# ONLY spritelab/engine/ is tracked - that is the actual code. Everything else is
+# regenerable from it plus the character folders, and runs to ~250MB.
+spritelab/inputs/
+spritelab/outputs/
+spritelab/generated/
+spritelab/aligned/
+spritelab/aligned_expr/
+spritelab/heads_out/
+spritelab/heads_fixed/
+spritelab/faces_out/
+spritelab/sheets/
+spritelab/results/
